@@ -59,7 +59,7 @@ services:
     networks: [avocat]
 
   minio:
-    image: minio/minio
+    image: quay.io/minio/minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -70,7 +70,7 @@ services:
     networks: [avocat]
 
   minio-init:
-    image: minio/mc
+    image: quay.io/minio/mc
     depends_on:
       - minio
     environment:
