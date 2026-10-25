@@ -13,8 +13,6 @@ services:
       context: ./apps/web
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       DATABASE_URL: postgresql://avocat:${POSTGRES_PASSWORD}@postgres:5432/avocat
       DATABASE_URL_TENANT_TEMPLATE: postgresql://avocat:${POSTGRES_PASSWORD}@postgres:5432/avocat
@@ -40,7 +38,7 @@ services:
         condition: service_started
       meilisearch:
         condition: service_started
-    networks: [avocat]
+    networks: [avocat, coolify]
 
   postgres:
     image: postgres:15
@@ -92,6 +90,10 @@ services:
 
 networks:
   avocat:
+  # Réseau externe de Coolify : le proxy Traefik ne peut joindre que les
+  # services attachés à ce réseau (seul `app` y est exposé).
+  coolify:
+    external: true
 
 volumes:
   pgdata:
