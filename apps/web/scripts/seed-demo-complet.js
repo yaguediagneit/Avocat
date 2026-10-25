@@ -10,6 +10,7 @@
  */
 process.loadEnvFile(".env");
 const argon2 = require("argon2");
+const path = require("path");
 const { readFileSync, existsSync } = require("fs");
 const { PrismaClient: TenantClient } = require("@prisma/client");
 const { PrismaClient: PublicClient } = require("../prisma/generated/public");
@@ -17,8 +18,10 @@ const { PrismaClient: PublicClient } = require("../prisma/generated/public");
 const DRY_RUN = process.argv.includes("--dry-run");
 const TENANT_ARG = process.argv.find((a) => a.startsWith("--tenant="))?.split("=")[1];
 
-const SYSCOHADA_JSON =
-  "C:/xampp/htdocs/cabinet/database/migrations/syscohada_plan_comptable_avec_code.json";
+const SYSCOHADA_JSON = path.join(
+  __dirname,
+  "../data/syscohada_plan_comptable_avec_code.json"
+);
 
 const YEAR = new Date().getFullYear();
 const MONTH = new Date().getMonth() + 1;

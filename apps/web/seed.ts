@@ -6,8 +6,10 @@ import path from "path";
 
 let prismaClient: Awaited<ReturnType<typeof getTenantPrisma>> | null = null;
 
-const SYSCOHADA_JSON =
-  "C:/xampp/htdocs/cabinet/database/migrations/syscohada_plan_comptable_avec_code.json";
+const SYSCOHADA_JSON = path.join(
+  __dirname,
+  "data/syscohada_plan_comptable_avec_code.json"
+);
 
 function mapClassToType(classe: number): string {
   switch (classe) {

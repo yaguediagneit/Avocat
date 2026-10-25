@@ -63,6 +63,7 @@ COPY server.js package.json next.config.mjs tsconfig.json docker-entrypoint.sh .
 COPY prisma/schema ./prisma/schema
 COPY public ./public
 COPY lib ./lib
+COPY data ./data
 COPY init.ts seed.ts ./
 COPY scripts ./scripts
 
