@@ -1,0 +1,103 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { guard } from "@/lib/api-guard";
+import { getDossierScopedAccessFilter, canAccessDossier } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
+
+const missionSchema = z.object({
+  dossierId: z.string().uuid(),
+  typeActe: z.string().min(1),
+  intervenantId: z.string().uuid(),
+  adresseSignification: z.string().optional(),
+  destinataire: z.string().optional(),
+  datePrevue: z.string().datetime().nullable().optional(),
+  fraisDeplacement: z.number().int().nullish(),
+  debours: z.number().int().nullish(),
+});
+
+const PROFESSIONS: Record<string, { model: string; intervenantKey: string; audit: string }> = {
+  architecte: { model: "missionArchitecte", intervenantKey: "architecteId", audit: "mission_architecte" },
+  "conseiller-juridique": { model: "missionConseillerJuridique", intervenantKey: "conseillerJuridiqueId", audit: "mission_conseiller_juridique" },
+  clerc: { model: "missionClerc", intervenantKey: "clercId", audit: "mission_clerc" },
+};
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { profession: string } }
+) {
+  const ctx = await guard(req, { resource: "missions", action: "read" });
+  if (ctx instanceof NextResponse) return ctx;
+
+  const profession = PROFESSIONS[params.profession];
+  if (!profession) {
+    return NextResponse.json({ error: "Profession inconnue" }, { status: 400 });
+  }
+
+  const accessFilter = await getDossierScopedAccessFilter(ctx.prisma, ctx.userId, ctx.roleInfo, "missions");
+  const delegate = (ctx.prisma as any)[profession.model];
+  const missions = await delegate.findMany({
+    where: accessFilter,
+    take: 100,
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json(missions);
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { profession: string } }
+) {
+  const ctx = await guard(req, { resource: "missions", action: "write" });
+  if (ctx instanceof NextResponse) return ctx;
+
+  const profession = PROFESSIONS[params.profession];
+  if (!profession) {
+    return NextResponse.json({ error: "Profession inconnue" }, { status: 400 });
+  }
+
+  try {
+    const body = await req.json();
+    const parsed = missionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const dossierOk = await canAccessDossier(ctx.prisma, ctx.userId, ctx.roleInfo, parsed.data.dossierId, "write");
+    if (!dossierOk) {
+      return NextResponse.json({ error: "Accès interdit à ce dossier" }, { status: 403 });
+    }
+
+    // Seul le créateur du dossier (avocat responsable) ou un administrateur
+    // peut créer des missions.
+    const dossier = await ctx.prisma.dossier.findUnique({
+      where: { id: parsed.data.dossierId },
+      select: { avocatResponsableId: true },
+    });
+    if (!ctx.roleInfo.estAdmin && dossier?.avocatResponsableId !== ctx.userId) {
+      return NextResponse.json(
+        { error: "Seul le créateur du dossier ou un administrateur peut créer une mission" },
+        { status: 403 }
+      );
+    }
+
+    const data: Record<string, unknown> = {
+      dossierId: parsed.data.dossierId,
+      typeActe: parsed.data.typeActe,
+      [profession.intervenantKey]: parsed.data.intervenantId,
+      adresseSignification: parsed.data.adresseSignification || null,
+      destinataire: parsed.data.destinataire || null,
+      datePrevue: parsed.data.datePrevue ? new Date(parsed.data.datePrevue) : null,
+      fraisDeplacement: parsed.data.fraisDeplacement ?? null,
+      debours: parsed.data.debours ?? null,
+    };
+
+    const delegate = (ctx.prisma as any)[profession.model];
+    const mission = await delegate.create({ data });
+
+    await logAudit(ctx.prisma, ctx.userId, `${profession.audit}_created`, "mission", mission.id);
+    return NextResponse.json(mission, { status: 201 });
+  } catch (error) {
+    console.error(`Create ${params.profession} mission error`, error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}

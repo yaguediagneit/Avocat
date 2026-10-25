@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plateforme de Gestion Juridique — Présentation</title>
+<style>
+  :root {
+    --navy-950: #0a1628;
+    --navy-900: #0f2140;
+    --navy-800: #16305a;
+    --navy-700: #1f3d6e;
+    --gold-500: #c78124;
+    --gold-400: #d99a3d;
+    --gold-300: #e8b563;
+    --ivory: #f7f3ec;
+    --ink: #101828;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: var(--navy-950);
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Fond animé ---------- */
+  .bg-aurora {
+    position: fixed; inset: -4%; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(60% 80% at 15% 10%, rgba(199,129,36,.14), transparent 60%),
+      radial-gradient(50% 70% at 85% 85%, rgba(31,61,110,.5), transparent 65%),
+      radial-gradient(40% 50% at 70% 15%, rgba(14,116,144,.10), transparent 60%),
+      var(--navy-950);
+    transition: transform 1.2s cubic-bezier(.22,1,.36,1), filter 1s ease;
+    will-change: transform, filter;
+  }
+  .bg-aurora::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, black, transparent);
+  }
+  .bg-aurora::before {
+    content: ""; position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%;
+    left: 50%; top: 50%; translate: -50% -50%;
+    background: conic-gradient(from 0deg, transparent 70%, rgba(199,129,36,.05), transparent 100%);
+    animation: aurora-spin 40s linear infinite;
+  }
+  @keyframes aurora-spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Slides ---------- */
+  .slide {
+    position: fixed; inset: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 60px 7vw;
+    opacity: 0; visibility: hidden;
+    transform: translateY(40px) scale(.985);
+    transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1), visibility 0s .7s;
+  }
+  .slide.active {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1);
+  }
+  .slide.exit-up { transform: translateY(-40px) scale(.985); }
+
+  .inner { max-width: 1200px; width: 100%; position: relative; z-index: 2; }
+
+  /* Staggered entrance for children of active slide */
+  .slide .anim { opacity: 0; transform: translateY(26px); transition: opacity .6s ease, transform .6s cubic-bezier(.22,1,.36,1); }
+  .slide.active .anim { opacity: 1; transform: none; }
+  .slide.active .anim:nth-child(1) { transition-delay: .10s; }
+  .slide.active .anim:nth-child(2) { transition-delay: .20s; }
+  .slide.active .anim:nth-child(3) { transition-delay: .30s; }
+  .slide.active .anim:nth-child(4) { transition-delay: .40s; }
+  .slide.active .anim:nth-child(5) { transition-delay: .50s; }
+  .slide.active .anim:nth-child(6) { transition-delay: .60s; }
+
+  /* ---------- Typo ---------- */
+  .kicker {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 13px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--gold-300); font-weight: 600; margin-bottom: 18px;
+  }
+  .kicker::before { content: ""; width: 42px; height: 2px; background: linear-gradient(90deg, var(--gold-500), transparent); border-radius: 2px; }
+  h1.hero { font-size: clamp(44px, 6.5vw, 88px); font-weight: 800; line-height: 1.04; letter-spacing: -0.02em; }
+  h2.title { font-size: clamp(30px, 4vw, 52px); font-weight: 800; letter-spacing: -0.015em; line-height: 1.08; margin-bottom: 10px; }
+  .subtitle { font-size: clamp(15px, 1.5vw, 20px); color: rgba(255,255,255,.72); line-height: 1.55; max-width: 70ch; }
+  .accent {
+    background: linear-gradient(100deg, var(--gold-300), var(--gold-500), #f6dcae, var(--gold-500), var(--gold-300));
+    background-size: 250% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: gold-shine 6s linear infinite;
+  }
+  @keyframes gold-shine { to { background-position: 250% center; } }
+
+  /* ---------- Cartes ---------- */
+  .grid { display: grid; gap: 18px; margin-top: 34px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card {
+    background: linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.025));
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px; padding: 22px 24px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s ease, border-color .4s ease;
+  }
+  .card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(199,129,36,.45);
+    box-shadow: 0 20px 55px rgba(0,0,0,.4), 0 0 0 1px rgba(199,129,36,.15);
+  }
+  .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .card p, .card li { font-size: 13.5px; line-height: 1.55; color: rgba(255,255,255,.72); }
+  .card ul { list-style: none; }
+  .card li { padding-left: 16px; position: relative; margin-top: 5px; }
+  .card li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--gold-400); }
+  .dot { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+
+  .chip {
+    display: inline-block; font-size: 11.5px; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; margin: 2px 3px 2px 0;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+    color: rgba(255,255,255,.85);
+  }
+  .chip.gold { background: rgba(199,129,36,.18); border-color: rgba(199,129,36,.4); color: var(--gold-300); }
+  .chip.red { background: rgba(220,38,38,.18); border-color: rgba(220,38,38,.4); color: #fca5a5; }
+  .chip.green { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.35); color: #6ee7b7; }
+  .chip.blue { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.35); color: #93c5fd; }
+
+  .num {
+    font-size: clamp(38px, 4vw, 56px); font-weight: 800; line-height: 1;
+    background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 28px; }
+  .flow .step {
+    background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+    border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+    padding: 10px 16px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .flow .arrow { color: var(--gold-400); font-size: 18px; font-weight: 700; }
+  .flow .step.gate { border-color: rgba(220,38,38,.5); background: rgba(220,38,38,.12); }
+
+  .lead { font-size: clamp(16px, 1.7vw, 21px); line-height: 1.65; color: rgba(255,255,255,.82); max-width: 75ch; }
+
+  /* ---------- Chrome : header / footer / nav ---------- */
+  .chrome { position: fixed; z-index: 50; }
+  .brand { top: 22px; left: 30px; display: flex; align-items: center; gap: 12px; font-size: 13px; letter-spacing: .12em; color: rgba(255,255,255,.55); text-transform: uppercase; font-weight: 600; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--navy-700), var(--navy-900)); border: 1px solid rgba(255,255,255,.15); display: flex; align-items: center; justify-content: center; color: var(--gold-300); font-weight: 800; font-size: 14px; }
+  .counter { top: 24px; right: 30px; font-size: 13px; color: rgba(255,255,255,.5); font-variant-numeric: tabular-nums; }
+  .counter b { color: var(--gold-300); }
+  .progress { top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.06); }
+  .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-500), var(--gold-300)); transition: width .5s cubic-bezier(.22,1,.36,1); }
+  .hint { bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.35); letter-spacing: .08em; }
+  .hint kbd { border: 1px solid rgba(255,255,255,.2); border-radius: 5px; padding: 1px 7px; font-size: 11px; font-family: inherit; margin: 0 2px; }
+  .navbtn { bottom: 18px; width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: #fff; font-size: 19px; cursor: pointer; backdrop-filter: blur(6px); transition: .25s; }
+  .navbtn:hover { background: var(--gold-500); border-color: var(--gold-500); transform: scale(1.08); }
+  #prev { left: 24px; } #next { right: 24px; }
+  .navzone { position: fixed; top: 0; bottom: 0; width: 14vw; z-index: 40; cursor: pointer; }
+  #zoneL { left: 0; } #zoneR { right: 0; }
+
+  /* Points de navigation */
+  .dots { bottom: 54px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; }
+  .dots button { width: 7px; height: 7px; border-radius: 999px; border: none; padding: 0; cursor: pointer; background: rgba(255,255,255,.22); transition: all .35s cubic-bezier(.22,1,.36,1); }
+  .dots button:hover { background: rgba(255,255,255,.5); }
+  .dots button.on { width: 26px; background: linear-gradient(90deg, var(--gold-500), var(--gold-300)); box-shadow: 0 0 10px rgba(199,129,36,.5); }
+
+  /* ---------- Slide titre ---------- */
+  .hero-slide { text-align: center; }
+  .hero-slide .inner { display: flex; flex-direction: column; align-items: center; }
+  .hero-badge { width: 96px; height: 96px; border-radius: 26px; background: linear-gradient(135deg, var(--navy-700), var(--navy-950)); border: 1px solid rgba(255,255,255,.15); display: flex; align-items: center; justify-content: center; font-size: 44px; margin-bottom: 34px; box-shadow: 0 20px 60px rgba(199,129,36,.25); animation: hero-float 5s ease-in-out infinite; position: relative; }
+  .hero-badge::after { content: ""; position: absolute; inset: -14px; border-radius: 34px; border: 1px solid rgba(199,129,36,.25); animation: hero-ring 3.5s ease-in-out infinite; }
+  @keyframes hero-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  @keyframes hero-ring { 0%,100% { opacity: .4; scale: 1; } 50% { opacity: .9; scale: 1.06; } }
+  .hero-sub { margin-top: 22px; font-size: clamp(15px, 1.6vw, 19px); color: rgba(255,255,255,.65); max-width: 60ch; line-height: 1.6; }
+  .hero-tags { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .hero-tags span { font-size: 12.5px; padding: 7px 16px; border-radius: 999px; border: 1px solid rgba(199,129,36,.4); color: var(--gold-300); background: rgba(199,129,36,.08); }
+
+  .two-col { display: grid; grid-template-columns: 1.1fr .9fr; gap: 44px; align-items: center; }
+  .stat-band { display: flex; gap: 34px; flex-wrap: wrap; margin-top: 30px; }
+  .stat-band > div { min-width: 120px; }
+  .stat-band small { display: block; margin-top: 6px; font-size: 12.5px; color: rgba(255,255,255,.55); letter-spacing: .06em; text-transform: uppercase; }
+
+  .sectnum { position: absolute; top: -14px; right: 0; font-size: clamp(80px, 10vw, 150px); font-weight: 800; color: rgba(255,255,255,.045); line-height: 1; pointer-events: none; user-select: none; }
+
+  @media (max-width: 900px) {
+    .g2, .g3, .g4, .two-col { grid-template-columns: 1fr; }
+    .slide { padding: 80px 6vw 90px; overflow-y: auto; align-items: flex-start; }
+    .sectnum { display: none; }
+  }
+  @media print {
+    .slide { position: relative; opacity: 1 !important; visibility: visible !important; transform: none !important; page-break-after: always; }
+    .chrome, .navzone { display: none !important; }
+    body { overflow: visible; }
+    html, body { height: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-aurora"></div>
+
+<div class="chrome progress"><div id="bar"></div></div>
+<div class="chrome brand"><span class="logo">⚖</span> Cabinet · Gestion Juridique | Yague +221777126139  |  +221775147441</div>
+<div class="chrome counter"><b id="cur">01</b> / <span id="tot"></span></div>
+<div class="chrome hint"><kbd>←</kbd><kbd>→</kbd> naviguer &nbsp;·&nbsp; <kbd>F</kbd> plein écran &nbsp;·&nbsp; <kbd>P</kbd> diaporama auto</div>
+<button class="chrome navbtn" id="prev" title="Précédent">‹</button>
+<button class="chrome navbtn" id="next" title="Suivant">›</button>
+<div class="navzone" id="zoneL"></div>
+<div class="navzone" id="zoneR"></div>
+<div class="chrome dots" id="dots"></div>
+
+<!-- ═══════════ 1 · TITRE ═══════════ -->
+<section class="slide hero-slide active">
+  <div class="inner">
+    <div class="hero-badge anim">⚖️</div>
+    <div class="kicker anim" style="justify-content:center">Plateforme de gestion juridique </div>
+    <h1 class="hero anim">Le cabinet,<br><span class="accent">orchestré de bout en bout</span></h1>
+    <p class="hero-sub anim">Dossiers, clients, démarches administratives, documents, facturation, comptabilité Syscohada, paie et espace client — une seule plateforme, conçue pour les cabinets d'avocats et d'huissiers au Sénégal.</p>
+    <div class="hero-tags anim">
+      <span>Dossiers &amp; contentieux</span><span>Démarches administratives</span><span>Comptabilité OHADA</span><span>Paie &amp; personnel</span><span>Espace client sécurisé</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 2 · PANORAMA ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">01</span>
+    <div class="kicker anim">Panorama</div>
+    <h2 class="title anim">Une plateforme, <span class="accent">sept espaces de travail</span></h2>
+    <div class="grid g3">
+      <div class="card anim"><h3><span class="dot" style="background:rgba(59,130,246,.2)">📊</span> Pilotage</h3><ul><li>Tableau de bord temps réel</li><li>Alertes &amp; notifications</li><li>Calendrier &amp; échéances</li><li>Tâches de l'équipe</li></ul></div>
+      <div class="card anim"><h3><span class="dot" style="background:rgba(199,129,36,.2)">📁</span> Cabinet</h3><ul><li>Dossiers juridiques</li><li>Clients</li><li>Missions &amp; actes d'huissier</li><li>Documents (GED)</li></ul></div>
+      <div class="card anim"><h3><span class="dot" style="background:rgba(139,92,246,.2)">📋</span> Démarches adm.</h3><ul><li>16 types de demandes</li><li>Demandeurs &amp; parcelles</li><li>Check-lists par type</li><li>Suivi vers l'administration</li></ul></div>
+      <div class="card anim"><h3><span class="dot" style="background:rgba(16,185,129,.2)">👥</span> Personnel</h3><ul><li>Employés &amp; paie (IRPP, IPRES, CNSS)</li><li>Congés &amp; soldes</li><li>Contrats de travail</li><li>Assurances</li></ul></div>
+      <div class="card anim"><h3><span class="dot" style="background:rgba(99,102,241,.2)">💰</span> Comptabilité</h3><ul><li>Écritures automatiques</li><li>Charges, factures, versements</li><li>Bilan &amp; compte de résultat</li><li>Rapport financier OHADA</li></ul></div>
+      <div class="card anim"><h3><span class="dot" style="background:rgba(168,85,247,.2)">🏛️</span> Administration &amp; Paramétrage</h3><ul><li>Demandes clients, courrier</li><li>Formalités tribunaux</li><li>Rôles, utilisateurs, audit</li><li>Espace client sécurisé</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 3 · VITRINE WEB ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">02</span>
+    <div class="kicker anim">La porte d'entrée publique</div>
+    <h2 class="title anim">Une vitrine <span class="accent">cinématique</span> pour le cabinet</h2>
+    <p class="subtitle anim">La landing page publique déploie la personnalité du cabinet sur la web-sphère — 100 % configurable depuis Paramétrage → Cabinet &amp; présentation, sans toucher une ligne de code.</p>
+    <div class="grid g3" style="margin-top:28px">
+      <div class="card anim"><h3>🎬 Hero multi-slides</h3><ul><li>Slides animés : titre, détail, couleur, police, CTA</li><li>Flèche de défilement, carrousel, image de marque</li><li>Menu responsive avec tiroir mobile</li></ul></div>
+      <div class="card anim"><h3>💎 Identité &amp; valeurs</h3><ul><li>Bandeau défilant des <strong>spécialités</strong> du cabinet</li><li>Section présentation, <strong>valeurs en cartes spotlight</strong></li><li>Témoignages clients, compteurs animés, révélations au scroll</li></ul></div>
+      <div class="card anim"><h3>🔗 Liée à l'application, en sécurité</h3><ul><li>Accès encadré : connexion cabinet &amp; espace client (MFA)</li><li>Aucune donnée métier exposée publiquement</li><li>Contact direct : téléphone, e-mail, adresse, CTA</li></ul></div>
+    </div>
+    <div class="card anim" style="margin-top:18px"><h3>📈 Au bénéfice du cabinet</h3><p>Visibilité professionnelle sur le web, image de marque cohérente (thème, polices, couleurs propres), acquisition de prospects — la vitrine raconte le cabinet ; l'application le fait travailler.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 4 · PILOTAGE ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">03</span>
+    <div class="kicker anim">Pilotage</div>
+    <h2 class="title anim">Tableau de bord <span class="accent">&amp; alertes</span></h2>
+    <p class="subtitle anim">La journée commence ici : indicateurs animés, raccourcis de création, et tout ce qui exige une attention immédiate.</p>
+    <div class="grid g4">
+      <div class="card anim"><div class="num">4</div><small>indicateurs clés</small><p style="margin-top:10px">Dossiers actifs, clients, événements à venir, tâches en cours — filtrés selon votre rôle.</p></div>
+      <div class="card anim"><div class="num">7j</div><small>horizon des alertes</small><p style="margin-top:10px">Tâches en retard ou sous 7 jours, événements imminents, factures échues impayées.</p></div>
+      <div class="card anim"><div class="num">4</div><small>tableaux latéraux</small><p style="margin-top:10px">Dossiers récents, tâches à venir, prochains événements, clients récents — chaque ligne cliquable.</p></div>
+      <div class="card anim"><div class="num">🔔</div><small>notifications métier</small><p style="margin-top:10px">Démarches mises à jour, documents reçus, validations attendues.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 5 · CLIENTS ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">04</span>
+    <div class="kicker anim">Cabinet · Clients</div>
+    <h2 class="title anim">Une base clients <span class="accent">vivante et reliée</span></h2>
+    <div class="two-col" style="margin-top:30px">
+      <div>
+        <p class="lead anim">Personnes physiques, entreprises, administrations : chaque client porte ses coordonnées, ses représentants et ses dossiers — et peut disposer d'un <strong>compte espace client</strong>.</p>
+        <div class="anim" style="margin-top:22px">
+          <span class="chip gold">Création depuis un demandeur</span>
+          <span class="chip">Représentants multiples</span>
+          <span class="chip">Recherche multi-mots</span>
+          <span class="chip">Lien espace client</span>
+        </div>
+      </div>
+      <div class="card anim">
+        <h3>✨ Zéro double saisie</h3>
+        <ul>
+          <li>Sélection d'un <strong>demandeur existant</strong> → type, identité, NINEA/pièce, adresse, contacts pré-remplis</li>
+          <li>Personne morale : le représentant légal devient représentant du client</li>
+          <li>Le demandeur est <strong>lié automatiquement</strong> au client créé</li>
+          <li>Registre demandeurs filtrable : clients du cabinet / tiers</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 6 · DOSSIERS ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">05</span>
+    <div class="kicker anim">Cabinet · Dossiers</div>
+    <h2 class="title anim">Le dossier, <span class="accent">unité centrale</span></h2>
+    <p class="subtitle anim">Client, type d'affaire, avocat, huissier, intervenants, tâches, documents, événements, missions, démarches — tout converge dans la fiche dossier.</p>
+    <div class="grid g3">
+      <div class="card anim"><h3>🗂️ Création assistée</h3><ul><li>Spécialité = type d'affaire (23+ domaines)</li><li>Natures de mission à cocher</li><li>Tâches <strong>générées automatiquement</strong> et affectées aux intervenants</li><li>Documents attendus par spécialité</li></ul></div>
+      <div class="card anim"><h3>📑 5 onglets métier</h3><ul><li>Documents (Reçu/Manquant)</li><li>Tâches (génération PDF)</li><li>Missions &amp; <strong>Démarches</strong></li><li>Événements &amp; discussions</li></ul></div>
+      <div class="card anim"><h3>🧭 RACI &amp; pilotage avancé</h3><ul><li><strong>Matrice RACI</strong> : Responsable · Accountable · Consulté · Informé pour chaque intervenant</li><li>Détection de conflits d'intérêts</li><li>Checklist de clôture</li><li>Confidentialité &amp; partage client</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 7 · SPÉCIALITÉS & BIBLIOTHÈQUE ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">06</span>
+    <div class="kicker anim">Moteur de productivité</div>
+    <h2 class="title anim">Spécialités : <span class="accent">un dossier = une méthode complète</span></h2>
+    <p class="subtitle anim">Chaque type d'affaire embarque son workflow, ses tâches de démarrage, ses documents attendus et ses modèles de courrier — prêts à l'ouverture du dossier.</p>
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card anim"><h3>⚖️ Spécialités</h3><ul>
+        <li><strong>23+ types d'affaire</strong> sélectionnables à la création du dossier</li>
+        <li>Dont 5 dédiées aux démarches : urbanisme, cadastre, foncier &amp; domaines, fiscalité, administratives</li>
+        <li>Workflow d'étapes propre à chaque domaine (prospect → clôture)</li>
+        <li>Types de documents attendus : statut Reçu / Manquant suivi dans l'onglet Documents</li>
+      </ul></div>
+      <div class="card anim"><h3>🧩 Modèles de tâches</h3><ul>
+        <li>Tâches <strong>auto-générées</strong> à l'ouverture : délai J+n, priorité, étape</li>
+        <li>Rôle attendu : avocat, juriste, assistant, huissier</li>
+        <li>Assignation automatique à l'intervenant dont les « tâches attendues » correspondent</li>
+        <li>Chaque tâche peut porter un <strong>modèle de document</strong> à variables</li>
+      </ul></div>
+      <div class="card anim"><h3>📚 Bibliothèque documents</h3><ul>
+        <li>Modèles à variables <code>{{cle|Libellé}}</code> — pré-remplis depuis dossier / client / cabinet</li>
+        <li>Génération <strong>PDF</strong> à l'en-tête du cabinet, versée dans la GED</li>
+        <li>19 modèles de démarches : notes de qualification, courriers, bordereaux de dépôt, PV de remise</li>
+        <li>Modifiables dans Paramétrage — sans jamais écraser un contenu personnalisé</li>
+      </ul></div>
+    </div>
+    <div class="card anim" style="margin-top:18px"><h3>⚡ Effet démultiplié</h3><p>Choix de la spécialité → plan d'action complet en une seconde : étapes, tâches assignées, pièces à réclamer au client et modèles de courrier prêts à éditer.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 8 · LISTE DES SPÉCIALITÉS ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">07</span>
+    <div class="kicker anim">Moteur de productivité</div>
+    <h2 class="title anim"><span class="accent">23 spécialités</span> couvrent tout le cabinet</h2>
+    <p class="subtitle anim">Chacune embarque son workflow, ses tâches à délai, ses documents attendus et ses modèles — activables ou non dans Paramétrage → Spécialités.</p>
+    <div class="grid g4" style="margin-top:24px">
+      <div class="card anim" style="border-color:rgba(199,129,36,.4)"><h3>🏛️ Démarches administratives</h3>
+        <p><span class="chip gold">Urbanisme : construire &amp; lotir</span><span class="chip gold">Cadastre : NICAD, extraits, CIC</span><span class="chip gold">Foncier &amp; domaines : TF, radiations</span><span class="chip gold">Fiscalité &amp; enregistrement</span><span class="chip gold">Administratives diverses</span></p>
+      </div>
+      <div class="card anim"><h3>🏠 Immobilier &amp; recouvrement</h3>
+        <p><span class="chip">Contentieux immobiliers</span><span class="chip">Litiges fonciers</span><span class="chip">Expulsions &amp; recouvrements</span><span class="chip">Baux commerciaux &amp; habitation</span><span class="chip">Recouvrement de créances</span></p>
+      </div>
+      <div class="card anim"><h3>📜 Contrats &amp; actes</h3>
+        <p><span class="chip">Contentieux contractuels</span><span class="chip">Rédaction &amp; analyse de contrats</span><span class="chip">Procédures civiles &amp; commerciales</span><span class="chip">Sommations &amp; mises en demeure</span><span class="chip">Constats &amp; procès-verbaux</span><span class="chip">Significations</span><span class="chip">Saisies &amp; mesures d'exécution</span></p>
+      </div>
+      <div class="card anim"><h3>⚖️ Conseil &amp; pénal</h3>
+        <p><span class="chip">Conseils juridiques &amp; consultations</span><span class="chip">Négociations &amp; règlements amiables</span><span class="chip">Litiges familiaux</span><span class="chip">Cybercriminalité &amp; droit du numérique</span><span class="chip">Droit pénal général &amp; criminel</span><span class="chip">Droit pénal des affaires</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 9 · DÉMARCHES — CATALOGUE ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">08</span>
+    <div class="kicker anim">Démarches administratives</div>
+    <h2 class="title anim"><span class="accent">16 démarches</span> vers les administrations sénégalaises</h2>
+    <p class="subtitle anim">Le cabinet prépare, dépose et suit — seule l'administration délivre l'acte.</p>
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card anim"><h3>🏙️ Urbanisme</h3><p><span class="chip blue">URB_LOTIR</span><span class="chip blue">URB_CONSTRUIRE</span></p><p style="margin-top:8px">Autorisations de lotir et de construire — 2 ou 3 exemplaires selon complexité.</p></div>
+      <div class="card anim"><h3>🗺️ Cadastre</h3><p><span class="chip blue">NICAD</span><span class="chip blue">Extrait de plan</span><span class="chip blue">CIC</span><span class="chip red">Avis favorable*</span></p><p style="margin-top:8px">Demandes au Bureau du Cadastre de la localité de la parcelle.</p></div>
+      <div class="card anim"><h3>📜 Foncier &amp; Domaines</h3><p><span class="chip red">Radiation*</span><span class="chip red">Mainlevée*</span><span class="chip blue">Bail → TF</span><span class="chip blue">Permis → TF</span></p><p style="margin-top:8px">Livre foncier, Conservation foncière, DEDT.</p></div>
+      <div class="card anim"><h3>🧾 Fiscalité</h3><p><span class="chip red">Enregistrement*</span><span class="chip red">Succession*</span><span class="chip blue">Non-imposition</span><span class="chip blue">Avis d'imposition</span><span class="chip red">Acquiescement*</span></p><p style="margin-top:8px">DGID et Centres des services fiscaux.</p></div>
+      <div class="card anim"><h3>📄 Divers</h3><p><span class="chip red">Duplicata*</span></p><p style="margin-top:8px">Documents administratifs et demandes transversales.</p></div>
+      <div class="card anim" style="border-color:rgba(220,38,38,.35)"><h3>⚠️ * Qualification obligatoire</h3><p>7 types ambigus restent <strong>« À qualifier »</strong> tant que sous-type, autorité, demandeur et objet ne sont pas documentés. Impossible de préparer une demande juridiquement imprécise.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 10 · DÉMARCHES — WORKFLOW ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">09</span>
+    <div class="kicker anim">Démarches administratives</div>
+    <h2 class="title anim">Un cycle de vie <span class="accent">sous garde-fous</span></h2>
+    <div class="flow anim">
+      <span class="step">Brouillon</span><span class="arrow">→</span>
+      <span class="step gate">À qualifier ⛔</span><span class="arrow">→</span>
+      <span class="step">Collecte des pièces</span><span class="arrow">→</span>
+      <span class="step gate">Contrôle interne ⛔</span><span class="arrow">→</span>
+      <span class="step gate">Validation avocat ⛔</span><span class="arrow">→</span>
+      <span class="step">Déposé</span><span class="arrow">→</span>
+      <span class="step">Instruction</span><span class="arrow">→</span>
+      <span class="step">Relance / Complément</span><span class="arrow">→</span>
+      <span class="step">Décision</span><span class="arrow">→</span>
+      <span class="step">Remis &amp; clôturé</span>
+    </div>
+    <div class="grid g4" style="margin-top:32px">
+      <div class="card anim"><h3>🚫 Blocages réels</h3><p>Qualification incomplète, pièces obligatoires manquantes, validation avocat absente, dépôt incomplet, débours non rapprochés — la transition est <strong>refusée</strong>.</p></div>
+      <div class="card anim"><h3>🧾 Dérogation tracée</h3><p>Possible uniquement avec un <strong>motif documenté</strong>, journalisé dans l'historique de la démarche.</p></div>
+      <div class="card anim"><h3>📋 Check-list en 5 catégories</h3><p>Interne cabinet, pièce client, technique, administratif à obtenir, preuve de dépôt — avec statuts et documents GED liés.</p></div>
+      <div class="card anim"><h3>📄 PDF en un clic</h3><p>Demandes, procurations, bordereaux de dépôt, relances, PV de remise — générés, chiffrés, versés dans la GED du dossier.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 11 · TÂCHES & CALENDRIER ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">10</span>
+    <div class="kicker anim">Pilotage quotidien</div>
+    <h2 class="title anim">Tâches <span class="accent">&amp; calendrier</span></h2>
+    <div class="two-col" style="margin-top:30px">
+      <div class="card anim">
+        <h3>✅ Tâches</h3>
+        <ul>
+          <li>4 priorités (basse → critique), 4 statuts</li>
+          <li>Générées depuis les modèles de la spécialité</li>
+          <li>Bouton <strong>Générer</strong> → PDF du courrier à variables</li>
+          <li>Décharge sur intervenants, supervision par le responsable</li>
+        </ul>
+      </div>
+      <div class="card anim">
+        <h3>📅 Calendrier</h3>
+        <ul>
+          <li>Audiences, échéances, RDV, significations, deadlines</li>
+          <li>Vue mensuelle + échéances de tâches intégrées</li>
+          <li><strong>Export iCal</strong> (Google Calendar, Outlook)</li>
+          <li>Événements « publics » visibles dans l'espace client</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card anim" style="margin-top:18px"><h3>🖨️ Moteur de documents</h3><p>Modèles à variables <span class="chip">[Libellé]</span> <span class="chip">{{cle|Libellé}}</span> pré-remplis depuis dossier, client, cabinet — substitution refaite côté serveur, en-tête cabinet, pagination « Page X / N ».</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 12 · MISSIONS & ADMINISTRATION ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">11</span>
+    <div class="kicker anim">Cabinet · Administration</div>
+    <h2 class="title anim">Missions <span class="accent">&amp; back-office</span></h2>
+    <div class="grid g2" style="margin-top:30px">
+      <div class="card anim"><h3>⭐ Missions d'huissier &amp; externes</h3><p><span class="chip">Signification</span><span class="chip">Sommation</span><span class="chip">Mise en demeure</span><span class="chip">Constat</span><span class="chip">Convocation</span><span class="chip">Saisie</span></p><p style="margin-top:10px">Statuts : en préparation → tentée → remise / échouée. Missions par profession : architecte, conseiller juridique, clerc.</p></div>
+      <div class="card anim"><h3>🏛️ Administration — 6 registres</h3><ul><li>Demandes clients &amp; registre d'appels — <strong>convertibles en démarche</strong></li><li>Pièces manquantes &amp; relances</li><li>Audiences &amp; réunions (événement calendrier créé automatiquement)</li><li>Formalités tribunaux · Missions prestataires · Courrier</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 13 · DOCUMENTS ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">12</span>
+    <div class="kicker anim">Cabinet · Documents</div>
+    <h2 class="title anim">GED <span class="accent">chiffrée et cloisonnée</span></h2>
+    <div class="two-col" style="margin-top:30px">
+      <div>
+        <p class="lead anim">Chaque document est rattaché à un dossier, catégorisé, versionné et chiffré. Trois visibilités indépendantes pilotées par des cases à cocher.</p>
+      </div>
+      <div class="card anim">
+        <h3>👁️ Qui voit quoi</h3>
+        <ul>
+          <li><strong>Publié client</strong> → téléchargeable dans l'espace client</li>
+          <li><strong>Partage externe</strong> → visible par huissier, architecte…</li>
+          <li><strong>Dépôt client</strong> → badge sur les pièces versées par le client</li>
+          <li>Téléchargement vérifié côté serveur à chaque accès</li>
+        </ul>
+      </div>
+    </div>
+    <div class="anim" style="margin-top:26px"><span class="chip gold">Correspondance</span><span class="chip gold">Contrat</span><span class="chip gold">Conclusions</span><span class="chip gold">Procès-verbal</span><span class="chip gold">Facture</span><span class="chip gold">Titre foncier</span><span class="chip gold">Assignation</span><span class="chip gold">Note interne</span></div>
+  </div>
+</section>
+
+<!-- ═══════════ 14 · FACTURATION & CHARGES ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">13</span>
+    <div class="kicker anim">Comptabilité · Flux financiers</div>
+    <h2 class="title anim">Factures, charges <span class="accent">&amp; intervenants</span></h2>
+    <div class="grid g3" style="margin-top:30px">
+      <div class="card anim"><h3>🧾 Facturation</h3><ul><li>Brouillon → Émise → Partielle → Payée</li><li>Colonnes Total TTC / Payé / Reste en temps réel</li><li>Impression à l'en-tête du cabinet</li><li>Solde visible dans l'espace client</li></ul></div>
+      <div class="card anim"><h3>📉 Charges &amp; immobilisations</h3><ul><li>Charge simple : D 6xx + D 445 TVA / C trésorerie</li><li>Immobilisation : classe 2 + dotations mensuelles automatiques</li><li>Catégories paramétrables (loyer, SENELEC, internet…)</li><li>Montant verrouillé après première dotation</li></ul></div>
+      <div class="card anim"><h3>🤝 Paiements &amp; versements</h3><ul><li>Paiements intervenants (prestataires) rattachés au dossier / mission</li><li>Versements sociaux et fiscaux : IPRES, CNSS, IRPP</li><li>Bordereaux de versement imprimables</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 15 · COMPTABILITÉ ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">14</span>
+    <div class="kicker anim">Comptabilité</div>
+    <h2 class="title anim">Syscohada, <span class="accent">sans saisie manuelle</span></h2>
+    <p class="subtitle anim">Chaque opération métier génère ses écritures dans les bons comptes et les bons journaux — automatiquement.</p>
+    <div class="flow anim">
+      <span class="step">Facture émise</span><span class="arrow">→</span><span class="step">D 4xx / C 70x + 445</span><span class="arrow">·</span>
+      <span class="step">Charge</span><span class="arrow">→</span><span class="step">D 6xx + 445 / C 5xx</span><span class="arrow">·</span>
+      <span class="step">Paie validée</span><span class="arrow">→</span><span class="step">D 6xx / C 4xx</span>
+    </div>
+    <div class="grid g4" style="margin-top:30px">
+      <div class="card anim"><h3>📚 Référentiels</h3><p>Plan comptable, journaux, tiers, grand livre.</p></div>
+      <div class="card anim"><h3>📊 États</h3><p>Bilan (photo en fin de période) et compte de résultat.</p></div>
+      <div class="card anim"><h3>📈 Rapport OHADA</h3><p>SIG, flux de trésorerie, paie — filtrable par mois ou période, export PDF.</p></div>
+      <div class="card anim"><h3>⚙️ Paramétrable</h3><p>Catégories de charges, taux de TVA, rubriques de paie, mappings de comptes.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 16 · PERSONNEL ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">15</span>
+    <div class="kicker anim">Personnel</div>
+    <h2 class="title anim">Paie &amp; RH <span class="accent">au droit sénégalais</span></h2>
+    <div class="grid g4" style="margin-top:30px">
+      <div class="card anim"><h3>💵 Bulletins de paie</h3><ul><li>IRPP cumulé annuel (barème progressif)</li><li>IPRES &amp; CNSS patronales</li><li>Création depuis un modèle d'employé</li><li>Génération en masse mois → mois</li></ul></div>
+      <div class="card anim"><h3>🌴 Congés</h3><ul><li>Solde 2,5 j/mois paramétrable</li><li>15+ types : mariage, décès, naissance, maladie…</li><li>Justificatifs &amp; plafonds réglementaires</li><li>Workflow de validation</li></ul></div>
+      <div class="card anim"><h3>📝 Contrats</h3><ul><li>CDI, CDD, stage…</li><li>Clauses paramétrables</li><li>Approbation direction / associés</li><li>Impression PDF</li></ul></div>
+      <div class="card anim"><h3>🛡️ Assurances</h3><ul><li>Assureurs, contrats, ayants droit</li><li>Paiements de primes &amp; factures</li><li>Bilan par employé</li></ul></div>
+    </div>
+    <div class="card anim" style="margin-top:18px"><h3>🔄 Passage de mois facilité</h3><p>« Générer bulletins » : mois source → mois cible, pour tous les employés actifs, sans doublon. La validation produit les écritures comptables automatiquement.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 17 · PARAMÉTRAGE ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">16</span>
+    <div class="kicker anim">Paramétrage · administrateurs</div>
+    <h2 class="title anim">Un classeur à <span class="accent">9 onglets</span></h2>
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card anim"><h3>1️⃣ Cabinet &amp; présentation</h3><p>Identité, logo, cachet, page publique (hero, valeurs, témoignages), thème des PDF.</p></div>
+      <div class="card anim"><h3>2️⃣ Spécialités</h3><p>Domaines d'affaire sélectionnables + documents attendus + étapes de workflow.</p></div>
+      <div class="card anim"><h3>3️⃣ Modèles de tâches</h3><p>Tâches auto-générées : délai J+n, rôle attendu, priorité, modèle de document.</p></div>
+      <div class="card anim"><h3>4️⃣ Bibliothèque documents</h3><p>Tous les modèles à variables : génération PDF / Word, modification, suppression.</p></div>
+      <div class="card anim"><h3>5️⃣ Rôles · 6️⃣ Utilisateurs</h3><p>Matrice de permissions par ressource et action ; comptes liés client/employé, signatures.</p></div>
+      <div class="card anim"><h3>7️⃣ Paramètres · 8️⃣ Compta · 9️⃣ Audit</h3><p>Listes déroulantes, catégories/mappings comptables, journal d'audit exportable.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 18 · ESPACE CLIENT ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">17</span>
+    <div class="kicker anim">Portail client</div>
+    <h2 class="title anim">L'espace client, <span class="accent">vitrine sécurisée</span></h2>
+    <div class="two-col" style="margin-top:30px">
+      <div>
+        <p class="lead anim">Un portail dédié (en-tête doré) où chaque client ne voit <strong>que ce qui le concerne</strong> : ses dossiers, ses documents publiés, ses factures et son solde, ses rendez-vous — plus un téléversement de pièces direct.</p>
+      </div>
+      <div class="card anim">
+        <h3>🔐 Cloisonnement strict</h3>
+        <ul>
+          <li>Dossiers filtrés par <code>clientId</code> de session</li>
+          <li>Documents : uniquement <code>publieClient = true</code></li>
+          <li>Factures et solde : client principal uniquement</li>
+          <li>API cabinet verrouillée par middleware</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 19 · SÉCURITÉ ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">18</span>
+    <div class="kicker anim">Sécurité &amp; organisation</div>
+    <h2 class="title anim">RACI <span class="accent">&amp;</span> RBAC : qui fait quoi, qui voit quoi</h2>
+    <p class="subtitle anim">Deux grilles complémentaires : le <strong>RACI</strong> organise le travail dans chaque dossier, le <strong>RBAC</strong> verrouille l'accès à toute la plateforme.</p>
+    <div class="grid g4" style="margin-top:26px">
+      <div class="card anim"><h3>🧭 RACI — dans le dossier</h3><ul><li><strong>R</strong>esponsable : exécute</li><li><strong>A</strong>ccountable : valide</li><li><strong>C</strong>onsulté · <strong>I</strong>informé</li><li>Tâches attendues auto-assignées</li></ul></div>
+      <div class="card anim"><h3>👑 RBAC — administrateur</h3><p>Omnipotent dans son cabinet : tous dossiers, tous statuts, paramétrage complet — chaque action reste journalisée en audit.</p></div>
+      <div class="card anim"><h3>🧩 RBAC — rôles métier</h3><p>Permissions par ressource (dossiers, clients, documents, comptabilité, demarches…) et action (read / write / validate / delete), plafond de confidentialité.</p></div>
+      <div class="card anim"><h3>  Externes &amp; clients</h3><p>Externe : uniquement les documents « Partage externe ». Client : uniquement ses dossiers et documents publiés.</p></div>
+    </div>
+    <div class="card anim" style="margin-top:18px"><h3>  Protections techniques</h3><p>Session + MFA par e-mail, CSRF double-submit, rate limiting, chiffrement des documents, isolation multi-tenant par schéma — le tout tracé dans le journal d'audit.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 20 · CHIFFRES ═══════════ -->
+<section class="slide">
+  <div class="inner">
+    <span class="sectnum">19</span>
+    <div class="kicker anim">En résumé</div>
+    <h2 class="title anim">La plateforme <span class="accent">en chiffres</span></h2>
+    <div class="stat-band anim" style="justify-content:space-between">
+      <div><div class="num">23+</div><small>spécialités d'affaire</small></div>
+      <div><div class="num">16</div><small>démarches administratives</small></div>
+      <div><div class="num">19</div><small>statuts de workflow démarche</small></div>
+      <div><div class="num">9</div><small>onglets de paramétrage</small></div>
+      <div><div class="num">100%</div><small>écritures comptables automatiques</small></div>
+    </div>
+    <div class="card anim" style="margin-top:40px"><h3>🎯 Une seule règle d'or</h3><p>Le cabinet prépare, contrôle, dépose et suit. Les administrations délivrent. L'application trace tout — et bloque ce qui ne doit pas partir.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 21 · CLÔTURE ═══════════ -->
+<section class="slide hero-slide">
+  <div class="inner">
+    <div class="hero-badge anim">🏁</div>
+    <h1 class="hero anim">Prêt à <span class="accent">piloter le cabinet</span> ?</h1>
+    <p class="hero-sub anim">Guide complet intégré à l'application : menu → Aide &amp; Guide.<br>Chaque module est documenté, chaque processus est illustré pas à pas.</p>
+    <div class="hero-tags anim"><a href="https://proappz.online/cjm/aide.html"
+><span>Aide &amp; Guide</span><span>35 min de lecture</span><span>18 modules couverts</span></div>
+  </div>
+</section>
+
+
+https://proappz.online/cjm/aide.html
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll(".slide"));
+  const total = slides.length;
+  const dotsBox = document.getElementById("dots");
+  const aurora = document.querySelector(".bg-aurora");
+  let i = 0, timer = null, wheelLock = 0;
+  document.getElementById("tot").textContent = String(total).padStart(2, "0");
+
+  // Points de navigation cliquables
+  const dots = slides.map((_, k) => {
+    const b = document.createElement("button");
+    b.setAttribute("aria-label", "Slide " + (k + 1));
+    b.onclick = () => show(k);
+    dotsBox.appendChild(b);
+    return b;
+  });
+
+  function show(n) {
+    const prev = i;
+    i = ((n % total) + total) % total;
+    slides.forEach((s, k) => {
+      s.classList.remove("active", "exit-up");
+      if (k === i) s.classList.add("active");
+      else if (k === prev) s.classList.add("exit-up");
+    });
+
+    document.getElementById("cur").textContent = String(i + 1).padStart(2, "0");
+    document.getElementById("bar").style.width = ((i + 1) / total * 100) + "%";
+    dots.forEach((d, k) => d.classList.toggle("on", k === i));
+    if (location.hash !== "#" + (i + 1)) history.replaceState(null, "", "#" + (i + 1));
+  }
+
+  const next = () => show(i + 1), back = () => show(i - 1);
+  document.getElementById("next").onclick = next;
+  document.getElementById("prev").onclick = back;
+  document.getElementById("zoneR").onclick = next;
+  document.getElementById("zoneL").onclick = back;
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); back(); }
+    else if (e.key === "Home") show(0);
+    else if (e.key === "End") show(total - 1);
+    else if (e.key.toLowerCase() === "f") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    }
+    else if (e.key.toLowerCase() === "p") {
+      if (timer) { clearInterval(timer); timer = null; }
+      else timer = setInterval(next, 8000);
+    }
+  });
+
+  // Molette : une slide par coup de molette
+  document.addEventListener("wheel", (e) => {
+    const now = Date.now();
+    if (now - wheelLock < 900 || Math.abs(e.deltaY) < 24) return;
+    wheelLock = now;
+    e.deltaY > 0 ? next() : back();
+  }, { passive: true });
+
+  // Parallaxe douce du fond suivant la souris
+  document.addEventListener("mousemove", (e) => {
+    const x = (e.clientX / window.innerWidth - .5) * 18;
+    const y = (e.clientY / window.innerHeight - .5) * 12;
+    aurora.style.transform = "translate(" + (-x) + "px," + (-y) + "px)";
+  }, { passive: true });
+
+  let sx = null;
+  document.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 60) (dx < 0 ? next : back)();
+    sx = null;
+  }, { passive: true });
+
+  const h = parseInt((location.hash || "").slice(1), 10);
+  if (h >= 1 && h <= total) show(h - 1); else show(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Dépendances & builds
+node_modules/
+.next/
+apps/web/prisma/generated/
+*.tsbuildinfo
+
+# Secrets & environnement
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Fichiers locaux lourds / inutiles au déploiement
+tools/
+dumps/
+tmp-pdfgen-test/
+*.log
+nul
+exemples/
+presentation/
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+
+# Devin local config
+.devin/
+
+# Artefacts de build & fichiers temporaires
+dist2/
+tmp-*
+tsc-out.txt
+~$*

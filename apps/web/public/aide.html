@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide d'utilisation — LexCabinet</title>
+<style>
+  :root {
+    --navy-950: #0a1224; --navy-900: #0f1b33; --navy-800: #16264a; --navy-700: #1f3d6e;
+    --gold-300: #e8b565; --gold-500: #c78124; --gold-600: #a6651a;
+    --ink: #1a2438; --ink-soft: #48566e; --paper: #f7f8fc; --line: #e2e7f2;
+    --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    font-family: "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--paper); color: var(--ink);
+    line-height: 1.65;
+  }
+
+  /* ---------- En-tête ---------- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 28px;
+    background: linear-gradient(120deg, var(--navy-950), var(--navy-800));
+    color: #fff; box-shadow: 0 4px 24px rgba(10,18,36,.25);
+  }
+  .topbar .logo {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--gold-500), var(--gold-300));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: .02em; }
+  .topbar h1 small { display: block; font-size: 11px; font-weight: 500; opacity: .7; }
+  .topbar nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .topbar nav a {
+    color: rgba(255,255,255,.85); text-decoration: none; font-size: 12.5px;
+    padding: 6px 11px; border-radius: 8px; transition: background .25s;
+  }
+  .topbar nav a:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    padding: 130px 7vw 60px;
+    background:
+      radial-gradient(55% 90% at 12% 0%, rgba(199,129,36,.20), transparent 60%),
+      radial-gradient(50% 80% at 88% 100%, rgba(31,61,110,.6), transparent 65%),
+      var(--navy-950);
+    color: #fff;
+  }
+  .hero .kicker {
+    display: inline-flex; align-items: center; gap: 9px; font-size: 12px;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--gold-300); font-weight: 600;
+  }
+  .hero .kicker::before { content: ""; width: 32px; height: 1px; background: var(--gold-500); }
+  .hero h2 { font-size: clamp(30px, 4.6vw, 52px); font-weight: 800; margin: 14px 0 16px; line-height: 1.12; }
+  .hero h2 em {
+    font-style: normal;
+    background: linear-gradient(100deg, var(--gold-300), var(--gold-500));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { max-width: 720px; font-size: 16px; color: rgba(255,255,255,.78); }
+  .hero .meta { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero .meta span {
+    font-size: 12px; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.8);
+  }
+
+  /* ---------- Sommaire ---------- */
+  .toc {
+    padding: 48px 7vw 12px;
+  }
+  .toc h3 { font-size: 20px; margin-bottom: 18px; }
+  .toc .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+  .toc a {
+    display: flex; gap: 11px; align-items: flex-start; text-decoration: none;
+    background: #fff; border: 1px solid var(--line); border-radius: 13px;
+    padding: 13px 15px; transition: transform .25s, border-color .25s, box-shadow .25s;
+  }
+  .toc a:hover { transform: translateY(-3px); border-color: var(--gold-500); box-shadow: 0 10px 26px rgba(10,18,36,.09); }
+  .toc .ic {
+    width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--navy-800), var(--navy-950));
+    color: var(--gold-300); display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .toc strong { display: block; font-size: 13.5px; color: var(--ink); }
+  .toc small { font-size: 11.5px; color: var(--ink-soft); line-height: 1.35; display: block; }
+
+  /* ---------- Sections ---------- */
+  main { padding: 30px 7vw 80px; max-width: 1320px; margin: 0 auto; }
+  section {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 34px 38px; margin-top: 34px;
+    box-shadow: 0 6px 24px rgba(10,18,36,.05);
+  }
+  section > .head { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+  section .num {
+    width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--navy-700), var(--navy-950));
+    color: var(--gold-300); font-size: 20px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(199,129,36,.35);
+  }
+  section h2 { font-size: 24px; font-weight: 750; letter-spacing: -.01em; }
+  section .sub { color: var(--ink-soft); font-size: 14px; margin-bottom: 18px; }
+  .overview {
+    background: linear-gradient(160deg, #f4f6fd, #eef1fa);
+    border-left: 4px solid var(--navy-700);
+    border-radius: 10px; padding: 16px 20px; margin: 16px 0 22px; font-size: 14.5px;
+  }
+  .cards { display: grid; gap: 14px; margin-top: 14px; }
+  .cards.c2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .cards.c3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 13px; padding: 17px 19px;
+    background: linear-gradient(170deg, #fff, #fafbfe);
+  }
+  .card h4 { font-size: 14.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .card h4::before { content: ""; width: 7px; height: 7px; border-radius: 3px; background: var(--gold-500); flex-shrink: 0; }
+  .card ul { margin: 0; padding-left: 17px; font-size: 13px; color: var(--ink-soft); }
+  .card li { margin: 4px 0; }
+  .card p { font-size: 13px; color: var(--ink-soft); margin: 4px 0; }
+
+  .note, .tip, .warn {
+    border-radius: 11px; padding: 14px 18px; font-size: 13.5px; margin-top: 18px;
+  }
+  .note { background: #eef4ff; border: 1px solid #c9d9f6; color: #2c4a7c; }
+  .tip  { background: #fdf6e9; border: 1px solid #eed9ae; color: #7c5a1a; }
+  .warn { background: #fdefef; border: 1px solid #f3c8c8; color: #8c3232; }
+  .note b::before, .tip b::before, .warn b::before { display: inline; }
+  .note::before  { content: "ℹ️ "; }
+  .tip::before   { content: "💡 "; }
+  .warn::before  { content: "⚠️ "; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
+  th { text-align: left; background: var(--navy-800); color: #fff; padding: 9px 12px; font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--ink-soft); }
+  tr:nth-child(even) td { background: #f8f9fd; }
+  code {
+    background: #eef0f7; border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; font-size: 12px; font-family: Consolas, monospace; color: var(--navy-700);
+  }
+  .steps { counter-reset: st; margin: 14px 0; padding: 0; list-style: none; }
+  .steps li {
+    counter-increment: st; padding: 10px 0 10px 52px; position: relative;
+    font-size: 14px; border-bottom: 1px dashed var(--line);
+  }
+  .steps li::before {
+    content: counter(st); position: absolute; left: 0; top: 9px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold-500), var(--gold-600));
+    color: #fff; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .faq details {
+    border: 1px solid var(--line); border-radius: 11px; padding: 13px 17px; margin: 9px 0;
+    background: #fbfcff;
+  }
+  .faq summary { cursor: pointer; font-weight: 650; font-size: 14px; }
+  .faq details p { font-size: 13.5px; color: var(--ink-soft); margin-top: 9px; }
+
+  footer {
+    padding: 34px 7vw 48px; text-align: center; color: var(--ink-soft); font-size: 12.5px;
+  }
+  footer b { color: var(--gold-600); }
+
+  @media (max-width: 760px) {
+    .topbar nav { display: none; }
+    section { padding: 24px 20px; }
+  }
+  @media print {
+    .topbar, .toc { display: none; }
+    .hero { padding: 40px 0 26px; background: none; color: var(--ink); }
+    .hero p, .hero .meta span { color: var(--ink-soft); }
+    main { padding: 0; }
+    section { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">⚖️</div>
+  <h1>LexCabinet <small>Guide d'utilisation complet</small></h1>
+  <nav>
+    <a href="#sommaire">Sommaire</a>
+    <a href="#demarches">Démarches</a>
+    <a href="#parametrage">Paramétrage</a>
+    <a href="#vitrine">Vitrine</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+</div>
+
+<header class="hero">
+  <span class="kicker">Documentation · Version 2.0</span>
+  <h2>Maîtrisez votre cabinet,<br>de la <em>vitrine</em> à la <em>clôture</em>.</h2>
+  <p>
+    Guide complet de la plateforme de gestion du cabinet : dossiers, démarches administratives
+    (foncier, urbanisme, fiscalité), tâches, documents, comptabilité Syscohada, personnel,
+    espace client et vitrine web — avec les garde-fous qui empêchent toute demande floue
+    d'être préparée ou déposée.
+  </p>
+  <div class="meta">
+    <span>📖 ~35 min de lecture</span>
+    <span>🏛️ Cabinet d'avocats &amp; juristes</span>
+    <span>🇸🇳 Droit sénégalais</span>
+    <span>🔒 RBAC · MFA · Audit</span>
+  </div>
+</header>
+
+<div class="toc" id="sommaire">
+  <h3>Sommaire — 20 sections</h3>
+  <div class="grid">
+    <a href="#dashboard"><span class="ic">▦</span><span><strong>Tableau de bord</strong><small>Vue d'ensemble du cabinet</small></span></a>
+    <a href="#alertes"><span class="ic">⚠</span><span><strong>Alertes</strong><small>Urgences &amp; notifications</small></span></a>
+    <a href="#clients"><span class="ic">👤</span><span><strong>Clients</strong><small>Base de données clients</small></span></a>
+    <a href="#dossiers"><span class="ic">📁</span><span><strong>Dossiers</strong><small>Cœur du métier juridique</small></span></a>
+    <a href="#demarches"><span class="ic">📋</span><span><strong>Démarches adm.</strong><small>Foncier, urbanisme, fiscalité</small></span></a>
+    <a href="#taches"><span class="ic">✓</span><span><strong>Tâches</strong><small>Suivi et génération PDF</small></span></a>
+    <a href="#calendrier"><span class="ic">📅</span><span><strong>Calendrier</strong><small>Audiences &amp; échéances</small></span></a>
+    <a href="#missions"><span class="ic">★</span><span><strong>Missions</strong><small>Actes d'huissier &amp; externes</small></span></a>
+    <a href="#administration"><span class="ic">🏛</span><span><strong>Administration</strong><small>Courrier, formalités, demandes</small></span></a>
+    <a href="#documents"><span class="ic">📄</span><span><strong>Documents</strong><small>GED &amp; partage contrôlé</small></span></a>
+    <a href="#factures"><span class="ic">🧾</span><span><strong>Facturation</strong><small>Factures &amp; paiements</small></span></a>
+    <a href="#charges"><span class="ic">▤</span><span><strong>Charges</strong><small>Dépenses &amp; immobilisations</small></span></a>
+    <a href="#comptabilite"><span class="ic">₣</span><span><strong>Comptabilité</strong><small>Syscohada automatisée</small></span></a>
+    <a href="#personnel"><span class="ic">👥</span><span><strong>Personnel</strong><small>Paie, congés, contrats, assurances</small></span></a>
+    <a href="#parametrage"><span class="ic">⚙</span><span><strong>Paramétrage</strong><small>9 onglets de configuration</small></span></a>
+    <a href="#espace-client"><span class="ic">🖥</span><span><strong>Espace client</strong><small>Portail dédié aux clients</small></span></a>
+    <a href="#vitrine"><span class="ic">🌐</span><span><strong>Vitrine web</strong><small>Landing page publique</small></span></a>
+    <a href="#profil"><span class="ic">✎</span><span><strong>Mon profil</strong><small>Compte, signature, MFA</small></span></a>
+    <a href="#securite"><span class="ic">🛡</span><span><strong>Sécurité</strong><small>RBAC &amp; confidentialité</small></span></a>
+    <a href="#faq"><span class="ic">?</span><span><strong>FAQ</strong><small>Questions fréquentes</small></span></a>
+  </div>
+</div>
+
+<main>
+
+<!-- 1 ── TABLEAU DE BORD -->
+<section id="dashboard">
+  <div class="head"><span class="num">1</span><h2>Tableau de bord</h2></div>
+  <p class="sub">Vue d'ensemble temps réel de l'activité du cabinet — point d'entrée après connexion.</p>
+  <div class="overview">Le tableau de bord agrège l'activité : dossiers actifs, tâches à venir et en retard, factures en attente, trésorerie, démarches administratives en cours et débours non rapprochés.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Indicateurs</h4><ul>
+      <li>Dossiers actifs par spécialité et par statut d'avancement</li>
+      <li>Tâches du jour, en retard, prochaines échéances</li>
+      <li>Encaissements, factures impayées, solde de trésorerie</li>
+      <li>Démarches : répartition par statut, débours non rapprochés</li>
+    </ul></div>
+    <div class="card"><h4>Accès rapide</h4><ul>
+      <li>Recherche globale (palette de commande) : dossiers, clients, documents, factures</li>
+      <li>Liens directs vers les urgences (tâches en retard, audiences proches)</li>
+      <li>Raccourcis de création : dossier, client, tâche, démarche</li>
+    </ul></div>
+  </div>
+  <div class="tip">Le tableau de bord est <b>filtré par rôle</b> : un collaborateur ne voit que les dossiers auxquels il a accès, l'administrateur voit tout le cabinet.</div>
+</section>
+
+<!-- 2 ── ALERTES -->
+<section id="alertes">
+  <div class="head"><span class="num">2</span><h2>Alertes</h2></div>
+  <p class="sub">Le centre d'urgences du cabinet — tout ce qui exige une action rapide.</p>
+  <div class="overview">La page Alertes consolide en un seul écran les éléments prioritaires : tâches en retard ou à moins de 7 jours, événements proches (audiences, rendez-vous), factures échues et notifications.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Tâches urgentes</h4><p>En retard ou échéance ≤ 7 jours, avec lien direct vers la tâche.</p></div>
+    <div class="card"><h4>Événements proches</h4><p>Audiences et rendez-vous des prochains jours.</p></div>
+    <div class="card"><h4>Factures échues</h4><p>Factures impayées dont la date d'échéance est dépassée.</p></div>
+  </div>
+  <div class="note">Chaque utilisateur ne voit que les alertes des dossiers auxquels son rôle donne accès — l'isolation RBAC s'applique aussi aux notifications.</div>
+</section>
+
+<!-- 3 ── CLIENTS -->
+<section id="clients">
+  <div class="head"><span class="num">3</span><h2>Clients</h2></div>
+  <p class="sub">Référentiel des mandants du cabinet — personnes physiques et morales.</p>
+  <div class="overview">Le module Clients centralise l'identité des mandants : coordonnées, identifiants légaux (NINEA, pièce d'identité), représentants, compte espace client, documents associés, historique des dossiers et facturation.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Fiche client</h4><ul>
+      <li>Type Physique / Morale, identifiants légaux, coordonnées complètes</li>
+      <li>Représentants (nom, fonction, contacts) pour les personnes morales</li>
+      <li>Dossiers, documents et factures rattachés</li>
+      <li>Compte espace client : création, activation, réinitialisation</li>
+    </ul></div>
+    <div class="card"><h4>Création assistée</h4><ul>
+      <li>Formulaire complet avec validation des identifiants</li>
+      <li><strong>Créer depuis un demandeur existant</strong> : sélectionnez un demandeur — type, nom, identifiant, adresse, contacts et représentant se pré-remplissent ; le demandeur est automatiquement lié au nouveau client</li>
+      <li>Recherche multi-critères (nom, ville, identifiant, e-mail…)</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 4 ── DOSSIERS -->
+<section id="dossiers">
+  <div class="head"><span class="num">4</span><h2>Dossiers</h2></div>
+  <p class="sub">Le cœur du métier : affaires juridiques avec workflow, équipe et confidentialité.</p>
+  <div class="overview">Un dossier porte une affaire : type d'affaire (spécialité), client, workflow d'étapes, intervenants (matrice RACI), documents attendus, tâches générées automatiquement et niveau de confidentialité.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Cycle de vie</h4><ul>
+      <li>Workflow d'étapes configurable par spécialité (prospect → clôture)</li>
+      <li>Tâches de démarrage générées depuis les modèles de la spécialité</li>
+      <li>Types de documents attendus : statut Reçu / Manquant dans l'onglet Documents</li>
+      <li>Clôture et archivage — un dossier clôturé n'est accessible qu'à l'administrateur</li>
+    </ul></div>
+    <div class="card"><h4>Les 5 onglets de la fiche dossier</h4><ul>
+      <li><strong>Documents</strong> : GED du dossier + pièces attendues de la spécialité</li>
+      <li><strong>Tâches</strong> : plan d'action généré + tâches manuelles</li>
+      <li><strong>Missions</strong> : missions d'huissier / externes rattachées</li>
+      <li><strong>Démarches</strong> : les procédures administratives du dossier, avec ajout pré-rempli</li>
+      <li><strong>Événements</strong> : audiences, rendez-vous, échéances</li>
+    </ul></div>
+  </div>
+  <div class="cards c2">
+    <div class="card"><h4>Équipe &amp; RACI</h4><p>Responsable (avocat/huissier), collaborateurs internes et externes avec rôles R·A·C·I et tâches attendues ; contrôle des conflits d'intérêts à l'ouverture.</p></div>
+    <div class="card"><h4>Confidentialité</h4><p>Quatre niveaux : standard → restreint → confidentiel → maximal. Plus le niveau est élevé, plus l'accès est limité (responsable + admin uniquement au niveau maximal).</p></div>
+  </div>
+  <div class="tip"><b>Spécialités « démarches » :</b> 5 types d'affaire dédiés (urbanisme, cadastre, foncier &amp; domaines, fiscalité, administratives diverses) embarquent un workflow en 10 étapes calqué sur le cycle de démarche, des tâches avec modèles de courrier et les types de documents attendus.</div>
+</section>
+
+<!-- 5 ── DÉMARCHES -->
+<section id="demarches">
+  <div class="head"><span class="num">5</span><h2>Démarches administratives</h2></div>
+  <p class="sub">Foncier, urbanisme, cadastre, domaines, fiscalité — le module des procédures vers les administrations sénégalaises.</p>
+  <div class="overview">
+    Ce module gère les procédures où <b>le cabinet prépare, contrôle, dépose, suit et archive</b> — et où
+    <b>seule l'administration compétente délivre</b> l'acte officiel (arrêté, attestation, extrait, titre foncier…).
+    Une démarche est toujours rattachée à un dossier du cabinet.
+  </div>
+  <div class="cards c3">
+    <div class="card"><h4>Urbanisme</h4><ul>
+      <li>Autorisation de construire</li><li>Autorisation de lotir</li>
+    </ul></div>
+    <div class="card"><h4>Cadastre</h4><ul>
+      <li>Attribution NICAD</li><li>Extrait de plan cadastral</li>
+      <li>CIC (Certificat d'identification)</li><li>Avis favorable cadastral</li>
+    </ul></div>
+    <div class="card"><h4>Foncier &amp; domaines</h4><ul>
+      <li>Radiation d'inscription hypothécaire</li><li>Mainlevée amiable</li>
+      <li>Bail → titre foncier</li><li>Permis d'occuper → titre foncier</li>
+    </ul></div>
+    <div class="card"><h4>Fiscalité &amp; enregistrement</h4><ul>
+      <li>Attestation de non-imposition</li><li>Enregistrement d'acte (bail…)</li>
+      <li>Déclaration de succession</li><li>Avis d'imposition</li><li>Acquiescement fiscal</li>
+    </ul></div>
+    <div class="card"><h4>Administratives diverses</h4><ul>
+      <li>Duplicata de document</li><li>Certificats administratifs</li><li>Démarches transverses</li>
+    </ul></div>
+    <div class="card"><h4>Référentiels</h4><ul>
+      <li><strong>Demandeurs</strong> : personnes au nom desquelles la demande est faite (lien optionnel vers un client du cabinet)</li>
+      <li><strong>Parcelles</strong> : bien immobilier concerné (commune, superficie, état de vérification)</li>
+      <li><strong>Autorités</strong> : administrations et services compétents</li>
+    </ul></div>
+  </div>
+  <div class="warn"><b>Qualification obligatoire :</b> 7 types de démarches exigent une qualification complète (objet précis, autorité compétente, demandeur identifié) avant toute préparation — une demande floue ne peut jamais atteindre l'étape de dépôt.</div>
+  <ol class="steps">
+    <li><b>Création</b> — assistant en 5 étapes : dossier → type de démarche → demandeur → parcelle → objet. Pré-remplissage possible depuis la fiche dossier ou une demande client (« → Démarche »).</li>
+    <li><b>Qualification</b> — clarifier l'objet, l'autorité compétente, le demandeur ; note de qualification tracée.</li>
+    <li><b>Collecte des pièces</b> — check-list par type, en 5 catégories : interne cabinet, administratif à obtenir, pièce client, technique, preuve de dépôt.</li>
+    <li><b>Préparation &amp; validation</b> — rédaction des pièces (modèles PDF <code>TPL_*</code>), contrôle de complétude, validation avocat pour les types sensibles.</li>
+    <li><b>Dépôt</b> — service, date, récépissé : impossible sans informations complètes.</li>
+    <li><b>Instruction &amp; suivi</b> — relances datées, demandes de complément, journal d'événements.</li>
+    <li><b>Décision &amp; remise</b> — accepté / refusé / complément ; document délivré référencé puis remis au client.</li>
+    <li><b>Clôture</b> — bloquée tant que des débours ne sont pas rapprochés ; archivage dans la GED du dossier.</li>
+  </ol>
+  <div class="note"><b>Garde-fous automatiques :</b> qualification incomplète → préparation impossible · pièces obligatoires manquantes → pas de « prêt à valider » · validation avocat exigée sur les types sensibles (permission <code>demarches:validate</code> ou dérogation motivée tracée) · champs de dépôt obligatoires · débours non rapprochés → clôture refusée.</div>
+</section>
+
+<!-- 6 ── TÂCHES -->
+<section id="taches">
+  <div class="head"><span class="num">6</span><h2>Tâches</h2></div>
+  <p class="sub">Plan d'action du cabinet : génération automatique, assignation et documents à variables.</p>
+  <div class="overview">Les tâches structurent le travail : échéance, priorité, étape de spécialité, rôle attendu (avocat, juriste, assistant, huissier) et — point fort — un modèle de document à variables généré en PDF.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Fonctionnement</h4><ul>
+      <li>Générées à l'ouverture du dossier depuis les <code>TacheTemplate</code> de la spécialité</li>
+      <li>Assignation automatique à l'intervenant dont les « tâches attendues » incluent le titre du modèle ; sinon responsable du dossier</li>
+      <li>Statuts : à faire → en cours → terminée ; échéances J+x relatives</li>
+      <li>Le responsable du dossier et l'admin peuvent reprendre toute tâche déchargée</li>
+    </ul></div>
+    <div class="card"><h4>Génération PDF</h4><ul>
+      <li>Chaque modèle de tâche peut porter un document à variables <code>{{cle|Libellé}}</code> ou <code>[Libellé]</code></li>
+      <li>Pré-remplissage suggéré depuis dossier / client / cabinet / utilisateur</li>
+      <li>PDF formaté (en-tête cabinet, pied de page, pagination) versé dans la GED</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 7 ── CALENDRIER -->
+<section id="calendrier">
+  <div class="head"><span class="num">7</span><h2>Calendrier</h2></div>
+  <p class="sub">Audiences, rendez-vous, échéances — l'agenda unifié du cabinet.</p>
+  <div class="overview">Le calendrier consolide les événements : audiences (créées depuis Administration, avec génération automatique de l'événement agenda), rendez-vous clients, échéances de démarches et tâches datées.</div>
+  <div class="card"><h4>Types d'événements</h4><ul>
+    <li><b>Audiences</b> : juridiction, chambre, partie adverse, rôle — l'annulation supprime l'événement</li>
+    <li><b>Rendez-vous / réunions</b> : participants, lieu, rappel</li>
+    <li><b>Échéances</b> : dates butoirs de démarches et relances planifiées</li>
+  </ul></div>
+</section>
+
+<!-- 8 ── MISSIONS -->
+<section id="missions">
+  <div class="head"><span class="num">8</span><h2>Missions</h2></div>
+  <p class="sub">Actes d'huissier et interventions externes suivis par le cabinet.</p>
+  <div class="overview">Les missions suivent les actes confiés aux intervenants : significations, constats, exécutions, missions d'architecte ou d'expert — rattachées aux dossiers avec statut, dates et documents produits.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Suivi</h4><ul>
+      <li>Intervenant (huissier, expert…), type d'acte, statut d'avancement</li>
+      <li>Lien dossier + documents produits dans la GED</li>
+      <li>Paiements intervenants suivis en comptabilité</li>
+    </ul></div>
+    <div class="card"><h4>Distinction</h4><p><b>Mission</b> = acte juridique ou technique délégué (huissier, expert). <b>Démarche</b> = procédure vers une administration. Les deux se rattachent au dossier mais suivent des cycles différents.</p></div>
+  </div>
+</section>
+
+<!-- 9 ── ADMINISTRATION -->
+<section id="administration">
+  <div class="head"><span class="num">9</span><h2>Administration</h2></div>
+  <p class="sub">Le back-office : flux entrants et registres de suivi.</p>
+  <div class="overview">Le groupe Administration gère les flux <b>entrants</b> et le suivi administratif courant — à distinguer des Démarches administratives qui sont des flux <b>sortants</b> vers les administrations.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Demandes clients</h4><p>Registre des demandes reçues des clients ; bouton <b>« → Démarche »</b> pour convertir une demande en procédure administrative pré-remplie.</p></div>
+    <div class="card"><h4>Pièces manquantes</h4><p>Suivi des documents attendus des clients sur les dossiers.</p></div>
+    <div class="card"><h4>Audiences</h4><p>Registre des audiences ; chaque création génère l'événement calendrier.</p></div>
+    <div class="card"><h4>Formalités tribunaux</h4><p>Suivi léger des formalités auprès des juridictions (distinct des démarches vers les administrations).</p></div>
+    <div class="card"><h4>Missions prestataires</h4><p>Interventions externes confiées à des prestataires.</p></div>
+    <div class="card"><h4>Courrier</h4><p>Registre du courrier entrant et sortant.</p></div>
+  </div>
+  <div class="note">Une carte pont relie cette page au module <b>Démarches administratives</b> : les deux espaces restent distincts (entrant vs sortant) mais navigables l'un vers l'autre.</div>
+</section>
+
+<!-- 10 ── DOCUMENTS -->
+<section id="documents">
+  <div class="head"><span class="num">10</span><h2>Documents — GED</h2></div>
+  <p class="sub">Gestion électronique des documents : stockage chiffré, classement, visibilité contrôlée.</p>
+  <div class="overview">La GED centralise tous les fichiers du cabinet : upload classé par dossier et catégorie, documents générés (courriers, modèles de démarches), avec trois niveaux de visibilité.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Interne</h4><p>Visibilité cabinet uniquement — comportement par défaut.</p></div>
+    <div class="card"><h4>Client <code>publieClient</code></h4><p>Visible dans l'espace client du client du dossier.</p></div>
+    <div class="card"><h4>Externe <code>partageExterne</code></h4><p>Visible par les intervenants externes du dossier (huissier responsable, collaborateurs externes).</p></div>
+  </div>
+  <div class="note">Un intervenant externe (rôle sans <code>documents:read</code>) ne voit <b>que</b> les documents marqués <code>partageExterne = true</code>. Le téléchargement client passe par <code>/api/documents/[id]/download</code> avec double vérification.</div>
+</section>
+
+<!-- 11 ── FACTURES -->
+<section id="factures">
+  <div class="head"><span class="num">11</span><h2>Facturation</h2></div>
+  <p class="sub">Factures clients, paiements partiels et suivi des impayés.</p>
+  <div class="overview">La facturation couvre honoraires et débours : émission de factures TVA paramétrable, paiements multiples partiels, relances, export PDF à l'identité du cabinet.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Cycle de vie</h4><ul>
+      <li>Brouillon → émise → partiellement payée → soldée (ou échue)</li>
+      <li>Lignes de facturation (honoraires, débours, taxes), TVA par ligne</li>
+      <li>PDF à l'en-tête du cabinet (logo, slogan, pied de page)</li>
+    </ul></div>
+    <div class="card"><h4>Suivi</h4><ul>
+      <li>Paiements partiels cumulatifs avec modes de règlement</li>
+      <li>Alertes automatiques sur les factures échues</li>
+      <li>Écriture comptable automatique à l'émission</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 12 ── CHARGES -->
+<section id="charges">
+  <div class="head"><span class="num">12</span><h2>Charges &amp; immobilisations</h2></div>
+  <p class="sub">Dépenses du cabinet et gestion amortissable des immobilisations.</p>
+  <div class="overview">Les charges suivent les dépenses : catégories paramétrables (loyer, SENELEC, eau, téléphone, fournitures…), TVA déductible, et un module d'immobilisations avec amortissement mensuel automatique.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Charge simple</h4><ul>
+      <li>Catégorie → compte comptable auxiliaire ; écriture automatique D 6xx + D 445 / C 52-57</li>
+      <li>Justificatifs attachés, fournisseur, mode de paiement</li>
+    </ul></div>
+    <div class="card"><h4>Immobilisation amortie</h4><ul>
+      <li>Case « Immobilisation amortie » : HT débité en compte de classe 2 choisi</li>
+      <li>Dotations mensuelles D 681x / C 28x (6812 incorporel / 6813 corporel)</li>
+      <li>Mode « montant » (mensualité fixe) ou « taux » (annuel), dernière dotation absorbant l'arrondi</li>
+      <li>Bouton « Comptabiliser les dotations échues » — idempotent, jamais en double</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 13 ── COMPTABILITÉ -->
+<section id="comptabilite">
+  <div class="head"><span class="num">13</span><h2>Comptabilité Syscohada</h2></div>
+  <p class="sub">Plan comptable OHADA, journaux, écritures automatiques et rapports financiers.</p>
+  <div class="overview">La comptabilité applique le référentiel Syscohada : plan de comptes complet, journaux par nature, grand livre, balance, compte de résultat, bilan et états OHADA — alimentés automatiquement par la facturation, les charges, la paie et les immobilisations.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Structure</h4><ul>
+      <li>Plan de comptes Syscohada</li>
+      <li>Journaux : ventes, achats, banque, caisse, paie, OD</li>
+      <li>Grand livre &amp; balance des comptes</li>
+    </ul></div>
+    <div class="card"><h4>Rapports</h4><ul>
+      <li>Bilan, compte de résultat, SIG, flux de trésorerie</li>
+      <li>Période : mois ou dates personnalisées</li>
+      <li>Export PDF fidèle au filtre choisi</li>
+    </ul></div>
+    <div class="card"><h4>Automatismes</h4><ul>
+      <li>Facture émise → écriture de vente</li>
+      <li>Charge → écriture d'achat ; immobilisation → dotations mensuelles</li>
+      <li>Paie → écritures sociales ; paiements intervenants ; versements sociaux &amp; fiscaux</li>
+    </ul></div>
+  </div>
+  <div class="tip">Le bilan est une photographie au dernier jour de la période (résultat net cumulé depuis le 1er janvier) ; le compte de résultat et les SIG sont calculés sur la période sélectionnée.</div>
+</section>
+
+<!-- 14 ── PERSONNEL -->
+<section id="personnel">
+  <div class="head"><span class="num">14</span><h2>Personnel</h2></div>
+  <p class="sub">Employés, paie IRPP/IPRES/CNSS, congés, contrats et assurances.</p>
+  <div class="overview">Le module Personnel couvre le cycle RH complet : fiches employés, paie mensuelle avec calculs sénégalais (IRPP, IPRES, CNSS), congés avec soldes légaux, contrats de travail à workflow d'approbation, assurances avec ayants droit.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Employés &amp; paie</h4><ul>
+      <li>Fiches employés, poste, rattachement utilisateur</li>
+      <li>Bulletins avec rubriques paramétrables</li>
+      <li>Passage de mois : IRPP, IPRES, CNSS automatiques</li>
+      <li>Bulletins signés téléversés → visibles par l'employé (Mon profil)</li>
+    </ul></div>
+    <div class="card"><h4>Congés</h4><ul>
+      <li>15+ types (annuel, maladie, maternité, exceptionnel…)</li>
+      <li>Soldes : acquisition 2,5 j/mois, plafonds sénégalais paramétrables</li>
+      <li>Workflow de demande et validation</li>
+    </ul></div>
+    <div class="card"><h4>Contrats &amp; assurances</h4><ul>
+      <li>Contrats de travail : ébauche → approbation direction → actif</li>
+      <li>Assurances : polices, primes, ayants droit, bilans par employé</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 15 ── PARAMÉTRAGE -->
+<section id="parametrage">
+  <div class="head"><span class="num">15</span><h2>Paramétrage</h2></div>
+  <p class="sub">Configuration complète du cabinet — 9 onglets, réservé aux administrateurs.</p>
+  <table>
+    <tr><th>Onglet</th><th>Contenu</th></tr>
+    <tr><td><b>Cabinet &amp; Présentation</b></td><td>Identité (raison sociale, slogan, logo, coordonnées, identifiants légaux), visuels, <b>vitrine web</b> (slides du hero, images, valeurs, témoignages, thème couleurs/polices), thème PDF des documents.</td></tr>
+    <tr><td><b>Spécialités</b></td><td>Types d'affaire sélectionnables, étapes de workflow, tâches de démarrage, types de documents attendus. Inclut les 5 spécialités « démarches ».</td></tr>
+    <tr><td><b>Modèles de tâches</b></td><td>Bibliothèque des <code>TacheTemplate</code> : titre, priorité, rôle, délai J+x, modèle de document à variables et aperçu PDF.</td></tr>
+    <tr><td><b>Bibliothèque documents</b></td><td>Modèles de documents du cabinet — les 19 modèles de démarches (notes de qualification, courriers, bordereaux, PV de remise…).</td></tr>
+    <tr><td><b>Rôles</b></td><td>Matrice de permissions par ressource : <code>read</code> / <code>write</code> / <code>validate</code> / <code>delete</code> — dont la ressource <code>demarches</code>.</td></tr>
+    <tr><td><b>Utilisateurs</b></td><td>Comptes du cabinet, rôles, activation, rattachement employé/client.</td></tr>
+    <tr><td><b>Paramètres</b></td><td>Listes de référence par catégorie (types d'affaire legacy, natures de mission, catégories de charges…).</td></tr>
+    <tr><td><b>Comptabilité</b></td><td>Taux de TVA, rubriques de paie, mappings comptables (comptes par défaut des automatismes).</td></tr>
+    <tr><td><b>Audit</b></td><td>Journal des actions sensibles : utilisateur, action, ressource, date — recherche multi-mots et export.</td></tr>
+  </table>
+</section>
+
+<!-- 16 ── ESPACE CLIENT -->
+<section id="espace-client">
+  <div class="head"><span class="num">16</span><h2>Espace client</h2></div>
+  <p class="sub">Portail sécurisé dédié aux clients du cabinet.</p>
+  <div class="overview">L'espace client (en-tête doré) offre à chaque client une vue filtrée de ses dossiers, documents publiés, factures et événements — avec un module de téléversement de pièces.</div>
+  <div class="cards c2">
+    <div class="card"><h4>Ce que le client voit</h4><ul>
+      <li>Ses dossiers uniquement (<code>clientId</code> de session)</li>
+      <li>Ses documents <code>publieClient = true</code></li>
+      <li>Ses factures et son solde restant dû</li>
+      <li>Ses événements publics à venir</li>
+    </ul></div>
+    <div class="card"><h4>Cloisonnement technique</h4><ul>
+      <li>Le middleware redirige toute session client vers <code>/login</code> pour les API cabinet</li>
+      <li>Téléchargement uniquement via <code>/api/documents/[id]/download</code> (clientId + publieClient vérifiés)</li>
+      <li>Seules <code>/api/client</code>, <code>/api/keys</code> et le download de documents sont accessibles</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 17 ── VITRINE -->
+<section id="vitrine">
+  <div class="head"><span class="num">17</span><h2>Vitrine web — landing page du cabinet</h2></div>
+  <p class="sub">Site public moderne, immersif et entièrement paramétrable, relié en sécurité à l'application.</p>
+  <div class="overview">
+    La vitrine est la <b>page publique du cabinet</b> : une landing page cinématique qui déploie l'identité,
+    les valeurs, les spécialités et les coordonnées du cabinet sur la web-sphère.
+    <b>Entièrement paramétrable</b> depuis Paramétrage → Cabinet &amp; présentation, sans toucher une ligne de code.
+  </div>
+  <div class="cards c2">
+    <div class="card"><h4>Contenu &amp; identité</h4><ul>
+      <li><b>Hero multi-slides animé</b> : carrousel (titre, détail, couleur, police, CTA) avec flèche de défilement</li>
+      <li><b>Bandeau défilant des spécialités</b> (marquee)</li>
+      <li><b>Section présentation</b> : texte institutionnel + image configurable</li>
+      <li><b>Valeurs en cartes spotlight</b> au survol · <b>témoignages clients</b> · <b>compteurs animés</b></li>
+      <li><b>Bloc contact</b> : téléphones, e-mail, adresse, site web, identifiants légaux + CTA</li>
+    </ul></div>
+    <div class="card"><h4>Paramétrage &amp; sécurité</h4><ul>
+      <li>Tout se configure dans <b>Paramétrage → Cabinet &amp; présentation</b> : identité, slides, images, valeurs, témoignages</li>
+      <li><b>Thème visuel propre</b> (couleurs, polices) indépendant du thème PDF</li>
+      <li><b>Responsive</b> : tiroir mobile, révélations au scroll</li>
+      <li><b>Liaison sécurisée</b> : accès encadré vers connexion cabinet / espace client (session + MFA) — aucune donnée métier exposée</li>
+    </ul></div>
+  </div>
+  <div class="cards c3">
+    <div class="card"><h4>Visibilité</h4><p>Le cabinet existe en ligne avec une image moderne et des coordonnées à jour — présence web professionnelle permanente.</p></div>
+    <div class="card"><h4>Image de marque</h4><p>Valeurs, ton, couleurs, spécialités : la vitrine incarne la personnalité du cabinet et inspire confiance.</p></div>
+    <div class="card"><h4>Acquisition</h4><p>Le visiteur découvre l'expertise et les références, puis bascule vers le contact ou l'espace client. La vitrine raconte le cabinet ; l'application le fait travailler.</p></div>
+  </div>
+  <div class="tip"><b>Séparation stricte :</b> vitrine et application partagent la même identité visuelle mais la page publique ne lit aucune donnée confidentielle ; l'accès au cabinet passe toujours par l'authentification MFA.</div>
+</section>
+
+<!-- 18 ── PROFIL -->
+<section id="profil">
+  <div class="head"><span class="num">18</span><h2>Mon profil</h2></div>
+  <p class="sub">Informations personnelles, mot de passe, signature électronique.</p>
+  <div class="cards c3">
+    <div class="card"><h4>Informations</h4><p>Prénom, nom, titre, spécialité affichés dans les documents ; changement de mot de passe sécurisé.</p></div>
+    <div class="card"><h4>Signature électronique</h4><p>Image de signature utilisée sur les courriers générés — stockage chiffré.</p></div>
+    <div class="card"><h4>Bulletins signés</h4><p>Si le compte est lié à un employé : accès aux bulletins de paie signés.</p></div>
+  </div>
+  <div class="note">L'accès à la plateforme exige une session MFA (code par e-mail) : gardez votre adresse à jour.</div>
+</section>
+
+<!-- 19 ── SÉCURITÉ -->
+<section id="securite">
+  <div class="head"><span class="num">19</span><h2>Sécurité, rôles &amp; confidentialité</h2></div>
+  <p class="sub">RBAC, isolation par tenant, MFA et journal d'audit.</p>
+  <div class="overview">Chaque cabinet est isolé dans son propre schéma de données. À l'intérieur, la matrice RBAC filtre chaque écran, liste et document selon le rôle de l'utilisateur.</div>
+  <div class="cards c3">
+    <div class="card"><h4>Administrateur</h4><p>Omnipotent <b>dans son tenant</b> : ignore la matrice, voit tous les dossiers (y compris clôturés/archivés), seul accès au Paramétrage. Chaque action est tracée en audit.</p></div>
+    <div class="card"><h4>Utilisateurs du cabinet</h4><p>Accès selon la matrice par ressource (<code>read/write/validate/delete</code>) et selon leur rôle dans les dossiers (responsable, collaborateur).</p></div>
+    <div class="card"><h4>Externes &amp; clients</h4><p>Externe : uniquement les documents <code>partageExterne</code>. Client : uniquement ses dossiers et documents <code>publieClient</code>.</p></div>
+  </div>
+  <div class="note"><b>Protections techniques :</b> MFA par e-mail (codes hachés, tentatives et envois limités) · CSRF double-submit sur toutes les API mutantes · rate limiting sur l'authentification · cookies de session sécurisés · le superadmin plateforme gère les tenants sans jamais exposer leurs bases.</div>
+</section>
+
+<!-- 20 ── FAQ -->
+<section id="faq" class="faq">
+  <div class="head"><span class="num">20</span><h2>Questions fréquentes</h2></div>
+  <details><summary>Quelle est la différence entre « Demandes clients » et « Démarches administratives » ?</summary>
+    <p>Les <b>Demandes clients</b> (Administration) sont des flux entrants : ce que les clients demandent au cabinet. Les <b>Démarches</b> sont des flux sortants : ce que le cabinet demande aux administrations. Le bouton « → Démarche » convertit une demande client en procédure pré-remplie.</p>
+  </details>
+  <details><summary>Pourquoi ma démarche est bloquée « À qualifier » ?</summary>
+    <p>7 types de démarches exigent une qualification complète (objet précis, autorité compétente, demandeur identifié). Tant que la fiche de qualification n'est pas renseignée, la préparation est impossible — c'est le garde-fou contre les demandes floues.</p>
+  </details>
+  <details><summary>Le cabinet délivre-t-il les actes (arrêtés, attestations, titres fonciers) ?</summary>
+    <p>Non. Le cabinet <b>prépare, contrôle, dépose, suit et archive</b>. Seule l'administration compétente (mairie, Bureau du Cadastre, Domaines, DGID…) délivre l'acte officiel. L'application trace la distinction à chaque étape.</p>
+  </details>
+  <details><summary>Peut-on déroger à une pièce obligatoire ou à la validation avocat ?</summary>
+    <p>Oui, avec la permission <code>demarches:validate</code> ou le rôle administrateur — chaque dérogation exige un motif et reste tracée dans le journal de la démarche et l'audit.</p>
+  </details>
+  <details><summary>Demandeur et client : quelle différence ?</summary>
+    <p>Le <b>Client</b> mandate et paie le cabinet. Le <b>Demandeur</b> est la personne au nom de laquelle la demande est faite à l'administration — ce peut être le client, un héritier, un bénéficiaire ou un tiers. Le lien <code>Demandeur.clientId</code> identifie les demandeurs qui sont aussi clients ; la création de client depuis un demandeur est pré-remplie.</p>
+  </details>
+  <details><summary>Comment créer un dossier « démarches » ?</summary>
+    <p>À la création d'un dossier, choisissez une des 5 spécialités administratives (urbanisme, cadastre, foncier &amp; domaines, fiscalité, administratives). Le workflow en 10 étapes, les tâches avec modèles de courrier et les documents attendus sont générés automatiquement ; les démarches s'y rattachent via l'onglet Démarches.</p>
+  </details>
+  <details><summary>Pourquoi la clôture d'une démarche est-elle refusée ?</summary>
+    <p>Si des frais de type débours ne sont pas rapprochés, la clôture est bloquée : le cabinet doit d'abord régulariser sa trésorerie. Rapprochez les débours dans l'onglet Frais de la démarche.</p>
+  </details>
+  <details><summary>Comment la vitrine web est-elle mise à jour ?</summary>
+    <p>Entièrement depuis Paramétrage → Cabinet &amp; présentation : slides du hero, images, valeurs, témoignages, coordonnées, thème. Aucune donnée confidentielle n'y transite.</p>
+  </details>
+</section>
+
+</main>
+
+<footer>
+  <b>LexCabinet</b> — Guide d'utilisation v2.0 · Documentation générée pour le cabinet ·
+  <a href="https://proappz.online/cjm/presentation.html" style="color:var(--gold-600)">Voir la présentation →</a>
+</footer>
+
+</body>
+</html>

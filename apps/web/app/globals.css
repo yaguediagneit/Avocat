@@ -1,0 +1,450 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --foreground-rgb: 26, 46, 76;
+  --background-rgb: 245, 247, 250;
+  --spotlight: rgba(74, 111, 165, 0.12);
+  --glow: rgba(74, 111, 165, 0.35);
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-cabinet-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-cabinet-900/20 transition-all duration-300 hover:bg-cabinet-900 hover:shadow-md hover:shadow-cabinet-900/25 active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-cabinet-700/40 bg-white/80 px-5 py-2.5 text-sm font-medium text-cabinet-900 backdrop-blur-sm transition-all duration-300 hover:border-cabinet-700 hover:bg-cabinet-100/80 active:scale-[0.98];
+  }
+  .input {
+    @apply w-full rounded-lg border border-gray-300 px-3 py-2 transition focus:border-cabinet-500 focus:outline-none focus:ring-2 focus:ring-cabinet-500/20;
+  }
+  .card {
+    @apply relative overflow-hidden rounded-xl border border-cabinet-200/70 bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-[0_4px_20px_rgba(15,27,46,0.08)];
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-cabinet-700 via-cabinet-500 to-gold-400 bg-clip-text text-transparent;
+  }
+  .section-label {
+    @apply inline-flex items-center gap-2 rounded-full border border-current px-3 py-1 text-[11px] font-semibold uppercase tracking-widest;
+  }
+  .spotlight-glow {
+    background: radial-gradient(600px circle at var(--x, 50%) var(--y, 50%), rgba(74, 111, 165, 0.14), transparent 40%);
+  }
+  .spotlight-glow-light {
+    background: radial-gradient(600px circle at var(--x, 50%) var(--y, 50%), rgba(255, 255, 255, 0.35), transparent 40%);
+  }
+  .bg-grid {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* Scrollbar fine pour la sidebar sombre du shell cabinet */
+  .shell-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+  .shell-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .shell-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .shell-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 99px;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-1.5rem) translateX(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Landing page : texte augmenté de 3px (périmètre .landing-root)
+   ============================================================ */
+.landing-root {
+  font-size: calc(1rem + 3px);
+}
+.landing-root .section-label {
+  font-size: 14px;
+}
+.landing-root .text-\[10px\] {
+  font-size: 13px;
+}
+.landing-root .text-\[26px\] {
+  font-size: 29px;
+}
+.landing-root .text-xs {
+  font-size: calc(0.75rem + 3px);
+}
+.landing-root .text-sm {
+  font-size: calc(0.875rem + 3px);
+}
+.landing-root .text-base {
+  font-size: calc(1rem + 3px);
+}
+.landing-root .text-lg {
+  font-size: calc(1.125rem + 3px);
+}
+.landing-root .text-xl {
+  font-size: calc(1.25rem + 3px);
+}
+.landing-root .text-2xl {
+  font-size: calc(1.5rem + 3px);
+}
+.landing-root .text-3xl {
+  font-size: calc(1.875rem + 3px);
+}
+.landing-root .text-4xl {
+  font-size: calc(2.25rem + 3px);
+}
+.landing-root .text-5xl {
+  font-size: calc(3rem + 3px);
+}
+.landing-root .text-6xl {
+  font-size: calc(3.75rem + 3px);
+}
+.landing-root .text-7xl {
+  font-size: calc(4.5rem + 3px);
+}
+.landing-root .text-8xl {
+  font-size: calc(6rem + 3px);
+}
+.landing-root .text-9xl {
+  font-size: calc(8rem + 3px);
+}
+@media (min-width: 640px) {
+  .landing-root .sm\:text-xs { font-size: calc(0.75rem + 3px); }
+  .landing-root .sm\:text-sm { font-size: calc(0.875rem + 3px); }
+  .landing-root .sm\:text-base { font-size: calc(1rem + 3px); }
+  .landing-root .sm\:text-lg { font-size: calc(1.125rem + 3px); }
+  .landing-root .sm\:text-xl { font-size: calc(1.25rem + 3px); }
+  .landing-root .sm\:text-2xl { font-size: calc(1.5rem + 3px); }
+  .landing-root .sm\:text-3xl { font-size: calc(1.875rem + 3px); }
+  .landing-root .sm\:text-4xl { font-size: calc(2.25rem + 3px); }
+  .landing-root .sm\:text-5xl { font-size: calc(3rem + 3px); }
+  .landing-root .sm\:text-6xl { font-size: calc(3.75rem + 3px); }
+  .landing-root .sm\:text-7xl { font-size: calc(4.5rem + 3px); }
+  .landing-root .sm\:text-8xl { font-size: calc(6rem + 3px); }
+  .landing-root .sm\:text-9xl { font-size: calc(8rem + 3px); }
+}
+@media (min-width: 768px) {
+  .landing-root .md\:text-xs { font-size: calc(0.75rem + 3px); }
+  .landing-root .md\:text-sm { font-size: calc(0.875rem + 3px); }
+  .landing-root .md\:text-base { font-size: calc(1rem + 3px); }
+  .landing-root .md\:text-lg { font-size: calc(1.125rem + 3px); }
+  .landing-root .md\:text-xl { font-size: calc(1.25rem + 3px); }
+  .landing-root .md\:text-2xl { font-size: calc(1.5rem + 3px); }
+  .landing-root .md\:text-3xl { font-size: calc(1.875rem + 3px); }
+  .landing-root .md\:text-4xl { font-size: calc(2.25rem + 3px); }
+  .landing-root .md\:text-5xl { font-size: calc(3rem + 3px); }
+  .landing-root .md\:text-6xl { font-size: calc(3.75rem + 3px); }
+  .landing-root .md\:text-7xl { font-size: calc(4.5rem + 3px); }
+  .landing-root .md\:text-8xl { font-size: calc(6rem + 3px); }
+  .landing-root .md\:text-9xl { font-size: calc(8rem + 3px); }
+}
+@media (min-width: 1024px) {
+  .landing-root .lg\:text-xs { font-size: calc(0.75rem + 3px); }
+  .landing-root .lg\:text-sm { font-size: calc(0.875rem + 3px); }
+  .landing-root .lg\:text-base { font-size: calc(1rem + 3px); }
+  .landing-root .lg\:text-lg { font-size: calc(1.125rem + 3px); }
+  .landing-root .lg\:text-xl { font-size: calc(1.25rem + 3px); }
+  .landing-root .lg\:text-2xl { font-size: calc(1.5rem + 3px); }
+  .landing-root .lg\:text-3xl { font-size: calc(1.875rem + 3px); }
+  .landing-root .lg\:text-4xl { font-size: calc(2.25rem + 3px); }
+  .landing-root .lg\:text-5xl { font-size: calc(3rem + 3px); }
+  .landing-root .lg\:text-6xl { font-size: calc(3.75rem + 3px); }
+  .landing-root .lg\:text-7xl { font-size: calc(4.5rem + 3px); }
+  .landing-root .lg\:text-8xl { font-size: calc(6rem + 3px); }
+  .landing-root .lg\:text-9xl { font-size: calc(8rem + 3px); }
+}
+@media (min-width: 1280px) {
+  .landing-root .xl\:text-xs { font-size: calc(0.75rem + 3px); }
+  .landing-root .xl\:text-sm { font-size: calc(0.875rem + 3px); }
+  .landing-root .xl\:text-base { font-size: calc(1rem + 3px); }
+  .landing-root .xl\:text-lg { font-size: calc(1.125rem + 3px); }
+  .landing-root .xl\:text-xl { font-size: calc(1.25rem + 3px); }
+  .landing-root .xl\:text-2xl { font-size: calc(1.5rem + 3px); }
+  .landing-root .xl\:text-3xl { font-size: calc(1.875rem + 3px); }
+  .landing-root .xl\:text-4xl { font-size: calc(2.25rem + 3px); }
+  .landing-root .xl\:text-5xl { font-size: calc(3rem + 3px); }
+  .landing-root .xl\:text-6xl { font-size: calc(3.75rem + 3px); }
+  .landing-root .xl\:text-7xl { font-size: calc(4.5rem + 3px); }
+  .landing-root .xl\:text-8xl { font-size: calc(6rem + 3px); }
+  .landing-root .xl\:text-9xl { font-size: calc(8rem + 3px); }
+}
+
+/* ============================================================
+   Print styles for financial reports
+   ============================================================ */
+
+/* À l'écran, l'espacement entre blocs est géré par space-y : espaceur masqué */
+.print-spacer {
+  display: none;
+}
+
+/* À l'écran, le tableau de mise en page imprimable se comporte comme des blocs */
+.print-layout,
+.print-layout > thead,
+.print-layout > tbody,
+.print-layout > tfoot,
+.print-layout > * > tr,
+.print-layout > * > tr > td {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 7mm 14mm 12mm 14mm;
+  }
+
+  /* Tableau englobant : thead/tfoot répétés nativement sur chaque page */
+  .print-layout {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    border: 0 !important;
+    page-break-inside: auto;
+  }
+  .print-layout > thead {
+    display: table-header-group;
+  }
+  .print-layout > tfoot {
+    display: table-footer-group;
+  }
+  .print-layout > * > tr {
+    display: table-row;
+    page-break-inside: auto;
+  }
+  .print-layout > * > tr > td {
+    display: table-cell;
+    padding: 0;
+    border: 0 !important;
+    vertical-align: top;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 9pt;
+  }
+
+  /* Hide navigation, sidebars, and non-essential UI */
+  nav,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Cover page : occupe une page complète */
+  .print-cover {
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  /* En-tête répété sur chaque page (dans le flux, via thead) */
+  .print-header {
+    padding-bottom: 6mm;
+  }
+
+  /* Pied de page répété sur chaque page (dans le flux, via tfoot) */
+  .print-footer {
+    padding-top: 6mm;
+  }
+
+  .print-section {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  /*
+    Séparation de 20px entre blocs : un élément physique plutôt qu'une marge,
+    car les marges sont annulées par le navigateur aux frontières de page.
+  */
+  .print-spacer {
+    display: block;
+    height: 20px;
+  }
+
+  /* Dernière page : la section remplit la page pour pousser le pied de page en bas */
+  .print-last-page {
+    min-height: 228mm;
+    page-break-inside: avoid;
+  }
+
+  /* Sections qui doivent démarrer sur une nouvelle page */
+  .print-page-start {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Sections longues autorisées à s'étendre sur plusieurs pages */
+  .print-allow-break {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  /* Espace de séparation de 20px entre deux tableaux */
+  .print-section table {
+    margin-bottom: 20px;
+  }
+
+  /* Montants : jamais de retour à la ligne, police légèrement réduite */
+  .print-section td.text-right,
+  .print-section th.text-right {
+    white-space: nowrap;
+    font-size: 8pt;
+    font-variant-numeric: tabular-nums;
+    padding-left: 6px;
+  }
+
+  /* La colonne Libellé absorbe la largeur restante */
+  .print-section td:not(.text-right):not(.font-mono):not(.text-center),
+  .print-section th:not(.text-right):not(.font-mono):not(.text-center) {
+    width: auto;
+    overflow-wrap: anywhere;
+  }
+  .print-section table {
+    table-layout: auto;
+    width: 100%;
+  }
+  .print-section td.font-mono,
+  .print-section td.text-center,
+  .print-section th.text-center {
+    white-space: nowrap;
+  }
+
+  /* Cartes d'indicateurs : montants sur une seule ligne */
+  .print-section .text-lg.font-bold {
+    white-space: nowrap;
+    font-size: 10pt;
+  }
+
+  /* Un titre reste toujours rattaché au tableau qui le suit */
+  .print-section h2,
+  .print-section h3,
+  .print-section h4,
+  .print-section-title {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* En-tête de section */
+  .print-section-title {
+    font-size: 11pt;
+  }
+
+  /* Ensure tables don't break across pages awkwardly */
+  table {
+    page-break-inside: auto;
+  }
+  .print-section tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+
+  /* Section cards: avoid breaking inside */
+  section {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  /* Badges numérotés des sections : visibles à l'impression */
+  .print-badge {
+    background-color: #2c4c7c !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Colors for print */
+  .text-emerald-600 { color: #059669 !important; }
+  .text-red-600 { color: #dc2626 !important; }
+  .text-cabinet-700 { color: #1e3a5f !important; }
+  .text-cabinet-800 { color: #1a2e4c !important; }
+  .text-cabinet-900 { color: #0f1b2e !important; }
+  .bg-cabinet-50 { background-color: #eef2f7 !important; }
+  .bg-amber-50 { background-color: #fffbeb !important; }
+  .bg-blue-50\/30 { background-color: #eff6ff !important; }
+  .bg-gray-100 { background-color: #f3f4f6 !important; }
+  .border-cabinet-200 { border-color: #cdd7e6 !important; }
+  .border-cabinet-300 { border-color: #a9bbd4 !important; }
+}

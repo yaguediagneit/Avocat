@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/public"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  raisonSociale   String
+  adresse         String?
+  identifiantFiscal String?
+  logoUrl         String?
+  domaine         String?  @unique
+  schemaName      String   @unique
+  databaseUrl     String?
+  configuration   Json?
+  planId          String?
+  plan            Plan?    @relation(fields: [planId], references: [id])
+  modeAbonnement  String?  @default("mensuel")
+  debutAbonnement DateTime?
+  finAbonnement   DateTime?
+  actif           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  keys TenantKey[]
+
+  @@map("tenants")
+}
+
+model Plan {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  nom             String
+  joursEssai      Int      @default(0)
+  acces           String?
+  modules         Json?    @default("[]")
+  nbUtilisateurs  Int?     @map("nb_utilisateurs")
+  support         Json?    @default("{}")
+  prixMensuel     Int      @default(0)
+  prixAnnuel      Int      @default(0)
+  actif           Boolean  @default(true)
+  ordre           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenants Tenant[]
+
+  @@map("plans")
+}
+
+model TenantKey {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  publicKey            String
+  encryptedPrivateKey  String
+  createdAt            DateTime @default(now())
+
+  @@map("tenant_keys")
+}

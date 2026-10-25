@@ -1,0 +1,2746 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_TENANT_TEMPLATE")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String
+  prenom          String
+  nom             String
+  titre           String?
+  specialite      String?
+  signatureKey    String?
+  roleId          String
+  clientId        String?
+  mfaSecret       String?
+  mfaEnabled      Boolean   @default(false)
+  actif           Boolean   @default(true)
+  derniereConnexion DateTime?
+  derniereIp      String?
+  appareils       Json?
+  calendarToken   String?   @unique @map("calendar_token")
+  createdAt       DateTime  @default(now())
+  role            Role      @relation(fields: [roleId], references: [id])
+  evenementsCrees Evenement[] @relation("EvenementCreateur")
+  contractsToApprove EmploymentContract[] @relation("ContractApprobateur")
+
+  @@map("users")
+}
+
+model Role {
+  id                      String   @id @default(uuid())
+  nom                     String   @unique
+  permissions             Json
+  estAdmin                Boolean  @default(false)
+  estClient               Boolean  @default(false)
+  niveauConfidentialiteMax Int     @default(0)
+  actif                   Boolean  @default(true)
+  users                   User[]
+
+  @@map("roles")
+}
+
+model PermissionDossier {
+  id        String   @id @default(uuid())
+  dossierId String
+  userId    String
+  niveau    String
+  createdAt DateTime @default(now())
+
+  @@map("permissions_dossier")
+}
+
+model Client {
+  id              String   @id @default(uuid())
+  type            String
+  raisonSociale   String
+  identifiant     String?
+  adresse         String?
+  coordonnees     Json?
+  representants   Json?
+  billingInfo     Json?
+  consentements   Json?
+  documentsAdmin  Json?
+  actif           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  dossiers        Dossier[]
+  factures        Facture[]
+  demandeurs      Demandeur[]
+  transactionParties TransactionPartie[]
+
+  @@map("clients")
+}
+
+model Dossier {
+  id                    String   @id @default(uuid())
+  referenceInterne      String   @unique
+  typeAffaire           String
+  /// Natures de mission du dossier : tableau de codes (paramètre `nature_mission`).
+  /// Les anciennes lignes peuvent contenir une simple chaîne — voir `naturesMissionOf`.
+  natureMission         Json
+  clientId              String
+  client                Client   @relation(fields: [clientId], references: [id])
+  partiesAdverses       Json?
+  juridictionId         String?
+  avocatResponsableId   String
+  huissierResponsableId String?
+  /// Utilisateur ayant créé le dossier (accès dossier + partage client).
+  createurId            String?
+  /// Dossier partagé avec le client (espace client) par le créateur/responsable/admin.
+  partageClient         Boolean  @default(false)
+  collaborateurs        Json?
+  dateOuverture         DateTime @default(now())
+  niveauConfidentialite Int      @default(1)
+  statut                String   @default("Nouveau")
+  dateEcheance          DateTime?
+  actif                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  documents             Document[]
+  taches                Tache[]
+  evenements            Evenement[]
+  missions              MissionHuissier[]
+  missionsArchitecte    MissionArchitecte[]
+  missionsConseillerJuridique MissionConseillerJuridique[]
+  missionsClerc         MissionClerc[]
+  factures              Facture[]
+  charges               Charge[]
+  conflitsInteret       ConflitInteret[] @relation("ConflitDossierSource")
+  conflitsCibles        ConflitInteret[] @relation("ConflitDossierCible")
+  commentaires          CommentaireDossier[]
+  collaborateursRACI    DossierCollaborateur[]
+  checklistItems        ChecklistCloture[]
+  demarches             Demarche[]
+  transactions          Transaction[]
+
+  @@map("dossiers")
+}
+
+/// Fil de discussion attaché à un dossier.
+/// Toutes les communications internes restent ici au lieu d'être dispersées dans des emails.
+model CommentaireDossier {
+  id         String   @id @default(uuid())
+  dossierId  String
+  dossier    Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  auteurId   String
+  auteurNom  String
+  message    String
+  /// "commentaire" | "decision" | "note_interne"
+  type       String   @default("commentaire")
+  luPar      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([dossierId])
+  @@index([createdAt])
+  @@map("commentaires_dossier")
+}
+
+/// Matrice RACI : multi-contributeurs par dossier avec rôles définis.
+/// R = Responsable, A = Approuve, C = Consulté, I = Informé
+model DossierCollaborateur {
+  id         String   @id @default(uuid())
+  dossierId  String
+  dossier    Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  userId     String
+  /// "R" | "A" | "C" | "I"
+  roleRACI   String
+  /// Type d'intervention : "avocat", "huissier", "juriste", "notaire", "expert_comptable", "assistant", "greffier"
+  discipline String?
+  /// Tâches attendues de cet intervenant : tableau de titres de `TacheTemplate`
+  /// de la spécialité du dossier. Les anciennes lignes peuvent contenir une
+  /// simple chaîne — normaliser avec `stringListOf`.
+  tacheAttendue Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([dossierId, userId])
+  @@index([dossierId])
+  @@map("dossier_collaborateurs")
+}
+
+/// Check-list de clôture : items à vérifier avant de clôturer un dossier.
+model ChecklistCloture {
+  id         String   @id @default(uuid())
+  dossierId  String
+  dossier    Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  libelle    String
+  ordre      Int      @default(0)
+  coche      Boolean  @default(false)
+  cochePar   String?
+  cocheLe    DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([dossierId])
+  @@map("checklist_cloture")
+}
+
+/// Notifications / rappels persistants générés automatiquement.
+/// Permet de configurer des rappels J-7, J-3, J-1 sur les échéances.
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  dossierId  String?
+  type       String
+  titre      String
+  message    String
+  /// "info" | "warning" | "urgent"
+  severite   String   @default("info")
+  lu         Boolean  @default(false)
+  luLe       DateTime?
+  dateDeclenchement DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, lu])
+  @@index([dossierId])
+  @@map("notifications")
+}
+
+/// Vérification de conflits d'intérêts entre dossiers.
+/// Détecte automatiquement les chevauchements de clients / parties adverses
+/// avant l'ouverture d'un dossier.
+model ConflitInteret {
+  id               String   @id @default(uuid())
+  dossierId        String
+  dossier          Dossier  @relation("ConflitDossierSource", fields: [dossierId], references: [id], onDelete: Cascade)
+  dossierConflitId String
+  dossierConflit   Dossier  @relation("ConflitDossierCible", fields: [dossierConflitId], references: [id])
+  /// "client_commun" | "partie_adverse_commune" | "client_vs_partie_adverse"
+  typeConflit      String
+  details          Json?
+  /// "detecte" | "valide" | "ignore" | "resolu"
+  statut           String   @default("detecte")
+  validePar        String?
+  dateVerification DateTime?
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([dossierId])
+  @@index([dossierConflitId])
+  @@index([statut])
+  @@map("conflits_interet")
+}
+
+model DossierImmobilier {
+  dossierId          String  @id
+  adresseBien        String?
+  titreFoncier       String?
+  natureBien         String?
+  proprietaire       String?
+  occupant           String?
+  montantLitige      Int?
+  expertId           String?
+  notaireId          String?
+  documentsPropriete Json?
+
+  @@map("dossiers_immobiliers")
+}
+
+model Document {
+  id              String   @id @default(uuid())
+  dossierId       String
+  dossier         Dossier  @relation(fields: [dossierId], references: [id])
+  nom             String
+  categorie       String
+  s3KeyChiffre    String
+  hashSha256      String
+  taille          Int
+  versionCourante Int      @default(1)
+  publieClient    Boolean  @default(false)
+  /// Partage avec les intervenants externes du dossier (huissier, collaborateurs externes).
+  partageExterne  Boolean  @default(false)
+  datePublication DateTime?
+  dateExpiration  DateTime?
+  creePar         String
+  validePar       String?
+  metadata        Json?
+  /// Workflow de validation des actes : "brouillon" | "en_relecture" | "valide" | "rejete"
+  statutValidation String  @default("brouillon")
+  relecteurId     String?
+  dateRelecture   DateTime?
+  /// Circuit de validation : [{ role: "redacteur", userId: "...", date: "..." }, ...]
+  circuitValidation Json?
+  actif           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  versions        VersionDocument[]
+
+  @@map("documents")
+}
+
+model VersionDocument {
+  id           String   @id @default(uuid())
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id])
+  s3KeyChiffre String
+  numeroVersion Int
+  hashSha256   String
+  creePar      String
+  createdAt    DateTime @default(now())
+
+  @@map("versions_document")
+}
+
+model Tache {
+  id            String   @id @default(uuid())
+  dossierId     String
+  dossier       Dossier  @relation(fields: [dossierId], references: [id])
+  titre         String
+  description   String?
+  responsableId String
+  createurId    String
+  echeance      DateTime?
+  priorite      String   @default("moyenne")
+  statut        String   @default("En cours")
+  actif         Boolean  @default(true)
+  checklist     Json?
+  commentaires  Json?
+  createdAt     DateTime @default(now())
+  factures      Facture[]
+  charges       Charge[]
+
+  @@map("taches")
+}
+
+model Evenement {
+  id              String    @id @default(uuid())
+  createurId      String?
+  createur        User?     @relation("EvenementCreateur", fields: [createurId], references: [id])
+  dossierId       String?
+  dossier         Dossier?  @relation(fields: [dossierId], references: [id])
+  type            String
+  titre           String
+  dateDebut       DateTime
+  dateFin         DateTime?
+  lieu            String?
+  participants    Json?
+  commentaires    Json?
+  estPublicClient Boolean   @default(false)
+  actif           Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@map("evenements")
+}
+
+model MissionHuissier {
+  id                   String   @id @default(uuid())
+  dossierId            String
+  dossier              Dossier  @relation(fields: [dossierId], references: [id])
+  typeActe             String
+  huissierId           String
+  adresseSignification String?
+  destinataire         String?
+  datePrevue           DateTime?
+  fraisDeplacement     Int?
+  debours              Int?
+  dateTentative        DateTime?
+  dateRemise           DateTime?
+  resultat             String?
+  preuveRemiseKey      String?
+  statut               String   @default("En préparation")
+  retourKey            String?
+  actif                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  factures             Facture[]
+  charges              Charge[]
+
+  @@map("missions_huissier")
+}
+
+model MissionArchitecte {
+  id                   String   @id @default(uuid())
+  dossierId            String
+  dossier              Dossier  @relation(fields: [dossierId], references: [id])
+  typeActe             String
+  architecteId         String
+  adresseSignification String?
+  destinataire         String?
+  datePrevue           DateTime?
+  fraisDeplacement     Int?
+  debours              Int?
+  dateTentative        DateTime?
+  dateRemise           DateTime?
+  resultat             String?
+  preuveRemiseKey      String?
+  statut               String   @default("En préparation")
+  retourKey            String?
+  actif                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@map("missions_architecte")
+}
+
+model MissionConseillerJuridique {
+  id                   String   @id @default(uuid())
+  dossierId            String
+  dossier              Dossier  @relation(fields: [dossierId], references: [id])
+  typeActe             String
+  conseillerJuridiqueId String
+  adresseSignification String?
+  destinataire         String?
+  datePrevue           DateTime?
+  fraisDeplacement     Int?
+  debours              Int?
+  dateTentative        DateTime?
+  dateRemise           DateTime?
+  resultat             String?
+  preuveRemiseKey      String?
+  statut               String   @default("En préparation")
+  retourKey            String?
+  actif                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@map("missions_conseiller_juridique")
+}
+
+model MissionClerc {
+  id                   String   @id @default(uuid())
+  dossierId            String
+  dossier              Dossier  @relation(fields: [dossierId], references: [id])
+  typeActe             String
+  clercId              String
+  adresseSignification String?
+  destinataire         String?
+  datePrevue           DateTime?
+  fraisDeplacement     Int?
+  debours              Int?
+  dateTentative        DateTime?
+  dateRemise           DateTime?
+  resultat             String?
+  preuveRemiseKey      String?
+  statut               String   @default("En préparation")
+  retourKey            String?
+  actif                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@map("missions_clerc")
+}
+
+model Facture {
+  id                 String     @id @default(uuid())
+  dossierId          String?
+  dossier            Dossier?   @relation(fields: [dossierId], references: [id])
+  tacheId            String?    @map("tache_id")
+  tache              Tache?     @relation(fields: [tacheId], references: [id])
+  missionHuissierId  String?    @map("mission_huissier_id")
+  missionHuissier    MissionHuissier? @relation(fields: [missionHuissierId], references: [id])
+  clientId           String
+  client             Client     @relation(fields: [clientId], references: [id])
+  numero       String     @unique
+  libelle      String?
+  designation  String?
+  intervenants Json?
+  dateEmission DateTime   @default(now()) @map("date_emission")
+  dateEcheance DateTime?  @map("date_echeance")
+  honoraires   Json?
+  debours      Int?
+  frais        Int?
+  totalHt      Int      @default(0) @map("total_ht")
+  totalTva     Int      @default(0) @map("total_tva")
+  totalTtc     Int
+  statut       String     @default("Brouillon")
+  actif        Boolean    @default(true)   @map("actif")
+  tvaEnabled   Boolean    @default(false) @map("tva_enabled")
+  tvaRateId    String?    @map("tva_rate_id")
+  tvaRate      TvaRate?   @relation(fields: [tvaRateId], references: [id])
+  paiements    Paiement[]
+  lines        FactureLine[]
+  accountingEntryId String? @map("accounting_entry_id")
+  createdAt    DateTime   @default(now())
+
+  @@index([tacheId])
+  @@index([missionHuissierId])
+  @@map("factures")
+}
+
+model FactureLine {
+  id           String   @id @default(uuid())
+  factureId    String   @map("facture_id")
+  facture      Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  description  String
+  quantite     Int    @default(1)
+  prixUnitaire Int    @default(0) @map("prix_unitaire")
+  tauxTva      Float    @default(0) @map("taux_tva")
+  totalHt      Int    @default(0) @map("total_ht")
+  totalTva     Int    @default(0) @map("total_tva")
+  totalTtc     Int    @default(0) @map("total_ttc")
+  ordre        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([factureId])
+  @@map("facture_lines")
+}
+
+model TvaRate {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  label     String
+  rate      Float
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  factures  Facture[]
+  charges   Charge[]
+  @@map("tva_rates")
+}
+
+model Paiement {
+  id           String   @id @default(uuid())
+  factureId    String
+  facture      Facture  @relation(fields: [factureId], references: [id])
+  montant      Int
+  datePaiement DateTime @default(now())
+  mode         String
+  reference    String?
+  preuveKey    String?
+  accountingEntryId String? @map("accounting_entry_id")
+  createdAt    DateTime @default(now())
+
+  @@map("paiements")
+}
+
+model ChargeCategory {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  accountCode String?  @map("account_code")
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  ordre       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  charges Charge[]
+  @@map("charge_categories")
+}
+
+model Charge {
+  id                String          @id @default(uuid())
+  categoryId        String          @map("category_id")
+  category          ChargeCategory  @relation(fields: [categoryId], references: [id])
+  dossierId         String?         @map("dossier_id")
+  dossier           Dossier?        @relation(fields: [dossierId], references: [id])
+  tacheId           String?         @map("tache_id")
+  tache             Tache?          @relation(fields: [tacheId], references: [id])
+  missionHuissierId String?         @map("mission_huissier_id")
+  missionHuissier   MissionHuissier? @relation(fields: [missionHuissierId], references: [id])
+  chargeDate        DateTime        @map("charge_date")
+  amount            Int
+  totalHt           Int?          @map("total_ht")
+  taxAmount         Int?          @map("tax_amount")
+  tvaEnabled        Boolean         @default(false) @map("tva_enabled")
+  tvaRateId         String?         @map("tva_rate_id")
+  tvaRate           TvaRate?        @relation(fields: [tvaRateId], references: [id])
+  paymentMethod     String          @map("payment_method")
+  description       String?
+  supplierName      String?         @map("supplier_name")
+  supplierInvoiceRef String?        @map("supplier_invoice_ref")
+  attachmentKey     String?         @map("attachment_key")
+  /// Immobilisation amortie : le bien est inscrit en classe 2 et la charge est
+  /// répartie sur `immobilisationMonths` mois via des dotations (ChargeAmortissement).
+  isImmobilisation  Boolean         @default(false) @map("is_immobilisation")
+  /// Mode de calcul de la dotation : "montant" (montant mensuel fixe) ou "taux" (taux annuel).
+  immobilisationMode String?        @map("immobilisation_mode")
+  /// Taux d'amortissement annuel en % (mode "taux").
+  immobilisationRate Float?         @map("immobilisation_rate")
+  /// Durée d'amortissement en mois.
+  immobilisationMonths Int?         @map("immobilisation_months")
+  /// Compte d'immobilisation (classe 2) débité à l'acquisition.
+  immobilisationAccountCode String? @map("immobilisation_account_code")
+  /// Premier mois de dotation (par défaut le mois de la charge).
+  amortissementStartDate DateTime?  @map("amortissement_start_date")
+  /// Dotation mensuelle aux amortissements.
+  monthlyPayment    Int?          @map("monthly_payment")
+  amortissements    ChargeAmortissement[]
+  status            String          @default("draft")
+  isPaid            Boolean         @default(false) @map("is_paid")
+  paidAt            DateTime?       @map("paid_at")
+  accountingEntryId String?         @map("accounting_entry_id")
+  actif             Boolean         @default(true) @map("actif")
+  createdBy         String?         @map("created_by")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  /// Données complémentaires pour les fiches spécifiques (ex. paiement intervenant).
+  metadata          Json?           @map("metadata")
+  lines             ChargeLine[]
+
+  @@index([categoryId])
+  @@index([chargeDate])
+  @@index([dossierId])
+  @@index([tacheId])
+  @@index([missionHuissierId])
+  @@map("charges")
+}
+
+model ChargeLine {
+  id           String  @id @default(uuid())
+  chargeId     String  @map("charge_id")
+  charge       Charge  @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  description  String
+  quantite     Int   @default(1)
+  prixUnitaire Int   @default(0) @map("prix_unitaire")
+  tauxTva      Float   @default(0) @map("taux_tva")
+  totalHt      Int   @default(0) @map("total_ht")
+  totalTva     Int   @default(0) @map("total_tva")
+  totalTtc     Int   @default(0) @map("total_ttc")
+  ordre        Int     @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([chargeId])
+  @@map("charge_lines")
+}
+
+/// Plan d'amortissement d'une charge inscrite en immobilisation : une ligne par
+/// mois de dotation. `isPosted` passe à true quand l'écriture
+/// D 681x Dotations / C 28x Amortissements a été générée.
+model ChargeAmortissement {
+  id                String   @id @default(uuid())
+  chargeId          String   @map("charge_id")
+  charge            Charge   @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  numero            Int
+  periodYear        Int      @map("period_year")
+  periodMonth       Int      @map("period_month")
+  dueDate           DateTime @map("due_date")
+  amount            Int
+  /// Cumul des amortissements à la fin de la période.
+  cumul             Int    @default(0)
+  /// Valeur nette comptable à la fin de la période.
+  vnc               Int    @default(0)
+  isPosted          Boolean  @default(false) @map("is_posted")
+  postedAt          DateTime? @map("posted_at")
+  accountingEntryId String?  @map("accounting_entry_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([chargeId, numero])
+  @@index([chargeId])
+  @@index([dueDate])
+  @@index([isPosted])
+  @@map("charge_amortissements")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entite    String
+  entiteId  String?
+  details   Json?
+  adresseIp String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entite, entiteId])
+  @@map("audit_logs")
+}
+
+model Parametre {
+  id        String   @id @default(uuid())
+  categorie String
+  code      String
+  libelle   String
+  ordre     Int      @default(0)
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categorie, code])
+  @@index([categorie])
+  @@map("parametres")
+}
+
+model Specialite {
+  id               String                   @id @default(uuid())
+  code             String                   @unique
+  libelle          String
+  description      String?
+  ordre            Int                      @default(0)
+  selectionnee     Boolean                  @default(false)
+  actif            Boolean                  @default(true)
+  typesDocuments   TypeDocumentSpecialite[]
+  workflowEtapes   WorkflowSpecialite[]
+  tacheTemplates   TacheTemplate[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@map("specialites")
+}
+
+model TypeDocumentSpecialite {
+  id           String     @id @default(uuid())
+  specialiteId String
+  specialite   Specialite @relation(fields: [specialiteId], references: [id], onDelete: Cascade)
+  code         String
+  libelle      String
+  description  String?
+  obligatoire  Boolean    @default(false)
+  ordre        Int        @default(0)
+  actif        Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([specialiteId, code])
+  @@map("types_documents_specialite")
+}
+
+model WorkflowSpecialite {
+  id           String     @id @default(uuid())
+  specialiteId String
+  specialite   Specialite @relation(fields: [specialiteId], references: [id], onDelete: Cascade)
+  code         String
+  libelle      String
+  description  String?
+  ordre        Int        @default(0)
+  estInitial   Boolean    @default(false)
+  estFinal     Boolean    @default(false)
+  /// Statut du dossier à appliquer quand une mission d'huissier réalise cette étape.
+  statutDossier String?
+  actif        Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tacheTemplates TacheTemplate[]
+
+  @@unique([specialiteId, code])
+  @@map("workflow_specialite")
+}
+
+/// Modèle de tâche pré-définie rattaché à une étape de workflow d'une spécialité.
+/// À la création d'un dossier, les templates de la spécialité sélectionnée
+/// génèrent automatiquement les tâches de démarrage.
+model TacheTemplate {
+  id                 String           @id @default(uuid())
+  specialiteId       String
+  specialite         Specialite       @relation(fields: [specialiteId], references: [id], onDelete: Cascade)
+  workflowEtapeId    String?
+  workflowEtape      WorkflowSpecialite? @relation(fields: [workflowEtapeId], references: [id], onDelete: SetNull)
+  titre              String
+  description        String?
+  /// Modèle de document : texte fixe contenant des variables {{cle}} ou {{cle|Libellé}}
+  /// substituées lors de la génération du PDF (formulaire structuré, texte non éditable).
+  contenuDocument    String?          @db.Text
+  /// Clé S3 du modèle Word (.docx) associé. Les variables {{cle}} dans le fichier
+  /// Word sont substituées via docxtemplater lors de la génération.
+  wordTemplateKey    String?
+  /// Délai en jours à compter de l'ouverture du dossier pour calculer l'échéance
+  delaiJours         Int              @default(0)
+  /// Rôle attendu : "avocat", "huissier", "juriste", "assistant", "any"
+  roleAttendu        String           @default("any")
+  priorite           String           @default("moyenne")
+  ordre              Int              @default(0)
+  actif              Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([specialiteId])
+  @@index([workflowEtapeId])
+  @@map("tache_templates")
+}
+
+model AccountingExercise {
+  id        String   @id @default(uuid())
+  label     String
+  year      Int
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  status    String   @default("open")
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  entries   AccountingEntry[]
+
+  @@index([year])
+  @@index([status])
+  @@map("accounting_exercises")
+}
+
+model AccountingAccount {
+  id          String  @id @default(uuid())
+  accountCode String  @unique @map("account_code")
+  label       String
+  class       Int
+  subClass    Int     @map("sub_class")
+  accountType String  @default("ACTIF") @map("account_type")
+  level       Int     @default(1)
+  parentId    String? @map("parent_id")
+  parent      AccountingAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    AccountingAccount[] @relation("AccountHierarchy")
+  soldeInitial Int  @default(0) @map("solde_initial")
+  soldeActuel  Int  @default(0) @map("solde_actuel")
+  isActive    Boolean @default(true) @map("is_active")
+  isAuxiliary Boolean @default(false) @map("is_auxiliary")
+  /// nature : "mouvementable" | "collectif" | "auxiliaire" | "regroupement" | "presentation"
+  nature      String  @default("mouvementable") @map("nature")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lines              AccountingEntryLine[]
+  defaultDebitJournals  AccountingJournal[] @relation("DefaultDebitJournal")
+  defaultCreditJournals AccountingJournal[] @relation("DefaultCreditJournal")
+
+  @@index([class])
+  @@index([subClass])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("accounting_accounts")
+}
+
+model AccountingJournal {
+  id                     String  @id @default(uuid())
+  code                   String  @unique
+  label                  String
+  journalType            String  @default("OD") @map("journal_type")
+  defaultDebitAccountId  String? @map("default_debit_account_id")
+  defaultCreditAccountId String? @map("default_credit_account_id")
+  defaultDebitAccount    AccountingAccount? @relation("DefaultDebitJournal", fields: [defaultDebitAccountId], references: [id])
+  defaultCreditAccount   AccountingAccount? @relation("DefaultCreditJournal", fields: [defaultCreditAccountId], references: [id])
+  isActive               Boolean @default(true) @map("is_active")
+  createdAt              DateTime @default(now()) @map("created_at")
+  entries                AccountingEntry[]
+
+  @@index([journalType])
+  @@index([isActive])
+  @@map("accounting_journals")
+}
+
+model AccountingEntry {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  journalId     String   @map("journal_id")
+  journal       AccountingJournal @relation(fields: [journalId], references: [id])
+  exerciseId    String   @map("exercise_id")
+  exercise      AccountingExercise @relation(fields: [exerciseId], references: [id])
+  entryDate     DateTime @map("entry_date")
+  reference     String?
+  idempotencyKey String? @map("idempotency_key")
+  libelle       String
+  totalDebit    Int    @default(0) @map("total_debit")
+  totalCredit   Int    @default(0) @map("total_credit")
+  isValidated   Boolean  @default(false) @map("is_validated")
+  validatedAt   DateTime? @map("validated_at")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  lines         AccountingEntryLine[]
+  insuranceAdvances InsurerPayment[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([tenantId, journalId])
+  @@index([tenantId, exerciseId])
+  @@index([tenantId, entryDate])
+  @@index([reference])
+  @@index([isValidated])
+  @@map("accounting_entries")
+}
+
+model AccountingEntryLine {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  entryId        String  @map("entry_id")
+  entry          AccountingEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId      String  @map("account_id")
+  account        AccountingAccount @relation(fields: [accountId], references: [id])
+  debit          Int   @default(0)
+  credit         Int   @default(0)
+  libelle        String?
+  thirdPartyType String? @map("third_party_type")
+  thirdPartyId   String? @map("third_party_id")
+  reference      String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, entryId])
+  @@index([tenantId, accountId])
+  @@map("accounting_entry_lines")
+}
+
+model AccountingTax {
+  id        String  @id @default(uuid())
+  code      String
+  label     String
+  rate      Float   @default(0)
+  accountId String? @map("account_id")
+  isActive  Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([code])
+  @@map("accounting_taxes")
+}
+
+model AccountMapping {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  accountCode String   @map("account_code")
+  journalCode String?  @map("journal_code")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("account_mappings")
+}
+
+model Employee {
+  id            String   @id @default(uuid())
+  employeeCode  String   @unique @map("employee_code")
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
+  position      String?
+  department    String?
+  hireDate       DateTime  @map("hire_date")
+  contractType   String    @map("contract_type")
+  contractEndDate DateTime? @map("contract_end_date")
+  baseSalary     Int     @map("base_salary")
+  cnssNumber          String? @map("cnss_number")
+  ipresNumber         String? @map("ipres_number")
+  irppNumber          String? @map("irpp_number")
+  insurancePolicyNumber String? @map("insurance_policy_number")
+  bankAccount         String? @map("bank_account")
+  email         String?
+  phone         String?
+  maritalStatus String   @map("marital_status")
+  nbChildren    Int      @default(0) @map("nb_children")
+  taxShares     Float    @default(1) @map("tax_shares")
+  regime        String   @default("general") @map("regime")
+  isActive      Boolean  @default(true) @map("is_active")
+  /// Responsable direct pour la validation des congés et absences.
+  managerId     String?  @map("manager_id")
+  manager       Employee? @relation("EmployeeManager", fields: [managerId], references: [id])
+  subordinates  Employee[] @relation("EmployeeManager")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  payrolls          Payroll[]
+  histories         EmployeeHistory[]
+  leaveRequests     LeaveRequest[]
+  leaveTransactions LeaveTransaction[]
+  leaveSetting      EmployeeLeaveSetting?
+  insuredEmployees    InsuredEmployee[]
+  insuranceDependents EmployeeDependent[]
+  contracts           EmploymentContract[]
+  socialPayments      SocialPayment[]
+  @@map("employees")
+}
+
+model EmployeeHistory {
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  field       String
+  oldValue    String?  @map("old_value")
+  newValue    String?  @map("new_value")
+  changedBy   String?  @map("changed_by")
+  changedAt   DateTime @default(now()) @map("changed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId, field, changedAt])
+  @@map("employee_history")
+}
+
+/// Contrat de travail liant un employé au cabinet.
+model EmploymentContract {
+  id                    String   @id @default(uuid())
+  employeeId            String   @map("employee_id")
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeContrat           String   @map("type_contrat")
+  dateDebut             DateTime @map("date_debut") @db.Date
+  dateFin               DateTime? @map("date_fin") @db.Date
+  dureeMois             Int?     @map("duree_mois")
+  fonction              String?
+  service               String?
+  lieuTravail           String?  @map("lieu_travail")
+  horaires              String?
+  salaireBase           Int      @map("salaire_base")
+  periodeEssaiJours     Int?     @map("periode_essai_jours")
+  congesPayesAnnuel     Int      @default(0) @map("conges_payes_annuel")
+  conventionCollective  String?  @map("convention_collective")
+  clauseConfidentialite Boolean  @default(false) @map("clause_confidentialite")
+  clauseNonConcurrence  Boolean  @default(false) @map("clause_non_concurrence")
+  objet                 String?
+  documentPath          String?  @map("document_path")
+  statut                String   @default("brouillon") @map("statut")
+  approbateurId         String?  @map("approbateur_id")
+  approbateur           User?    @relation("ContractApprobateur", fields: [approbateurId], references: [id])
+  createdBy             String   @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@index([statut])
+  @@index([approbateurId])
+  @@map("employment_contracts")
+}
+
+model PayrollRubric {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  label        String
+  type         String
+  calcType     String   @map("calc_type")
+  rateOrAmount Float    @map("rate_or_amount")
+  sortOrder    Int      @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  lines PayrollLine[]
+  @@map("payroll_rubrics")
+}
+
+/// Règles de cotisation par régime, organisme, plafond et période.
+/// Permet de gérer IPRES, CSS, accidents du travail, prestations familiales, etc.
+model PayrollContributionRule {
+  id            String   @id @default(uuid())
+  code          String
+  regime        String   @default("general")
+  label         String
+  organism      String?  @map("organism")
+  branch        String?  @map("branch")
+  employeeRate  Float    @map("employee_rate")
+  employerRate  Float    @map("employer_rate")
+  monthlyCeiling Int?    @map("monthly_ceiling")
+  effectiveFrom DateTime @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  accountEmployee String? @map("account_employee")
+  accountEmployer String? @map("account_employer")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([code, regime, effectiveFrom])
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@map("payroll_contribution_rules")
+}
+
+/// Versements sociaux et fiscaux à approuver avant règlement.
+/// IRPP, IPRES, CNSS/CSS, Assurance.
+model SocialPayment {
+  id                String    @id @default(uuid())
+  type              String    // IRPP | IPRES | CNSS_CSS | ASSURANCE
+  periodYear        Int       @map("period_year")
+  periodMonth       Int?      @map("period_month")
+  periodStart       DateTime? @map("period_start")
+  periodEnd         DateTime? @map("period_end")
+  employeeId        String    @map("employee_id")
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeNumber    String?   @map("employee_number")
+  amount            Int
+  preparedBy        String    @map("prepared_by")
+  preparedAt        DateTime  @default(now()) @map("prepared_at")
+  status            String    @default("draft") @map("status") // draft | approved | rejected
+  approvedBy        String?   @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+  accountingEntryId String?   @map("accounting_entry_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([periodYear, periodMonth])
+  @@index([employeeId, type])
+  @@map("social_payments")
+}
+
+model Payroll {
+  id                  String   @id @default(uuid())
+  employeeId          String   @map("employee_id")
+  employee            Employee @relation(fields: [employeeId], references: [id])
+  periodYear          Int      @map("period_year")
+  periodMonth         Int      @map("period_month")
+  baseSalary          Int    @map("base_salary")
+  grossSalary         Int    @map("gross_salary")
+  totalGains          Int    @map("total_gains")
+  totalDeductions     Int    @map("total_deductions")
+  totalCotisations    Int    @map("total_cotisations")
+  cssBase             Int    @map("css_base")
+  cssRate             Float    @map("css_rate")
+  cssAmount           Int    @map("css_amount")
+  cssEmployerAmount   Int    @map("css_employer_amount")
+  ipresBase           Int    @map("ipres_base")
+  ipresRate           Float    @map("ipres_rate")
+  ipresAmount         Int    @map("ipres_amount")
+  ipresEmployerAmount Int    @map("ipres_employer_amount")
+  irppTaxableBase     Int    @map("irpp_taxable_base")
+  irppShares          Float    @map("irpp_shares")
+  irppAmount          Int    @map("irpp_amount")
+  netSalary           Int    @map("net_salary")
+  totalEmployerCost   Int    @map("total_employer_cost")
+  status              String   @default("draft")
+  signedDocumentUrl   String?  @map("signed_document_url")
+  notes               String?
+  paidAt              DateTime? @map("paid_at")
+  accountingEntryId   String?  @map("accounting_entry_id")
+  createdBy           String?  @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  lines PayrollLine[]
+  @@unique([employeeId, periodYear, periodMonth])
+  @@map("payrolls")
+}
+
+model PayrollLine {
+  id             String        @id @default(uuid())
+  payrollId      String        @map("payroll_id")
+  payroll        Payroll       @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  rubricId       String        @map("rubric_id")
+  rubric         PayrollRubric @relation(fields: [rubricId], references: [id])
+  rubricCode     String        @map("rubric_code")
+  rubricLabel    String        @map("rubric_label")
+  rubricType     String        @map("rubric_type")
+  calcType       String        @map("calc_type")
+  rateOrAmount   Float         @map("rate_or_amount")
+  baseAmount     Int         @map("base_amount")
+  computedAmount Int        @map("computed_amount")
+  sortOrder      Int           @map("sort_order")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([payrollId])
+  @@map("payroll_lines")
+}
+
+/// Demandes déposées par les clients ou prospects.
+model ClientRequest {
+  id          String   @id @default(uuid())
+  /// "info" | "dossier" | "rendezvous" | "document" | "autre"
+  type        String
+  subject     String
+  description String?
+  /// "nouvelle" | "en_cours" | "traite" | "archive"
+  status      String   @default("nouvelle")
+  clientId    String?  @map("client_id")
+  requesterName  String?  @map("requester_name")
+  requesterPhone String?  @map("requester_phone")
+  requesterEmail String?  @map("requester_email")
+  requestDate DateTime? @map("request_date")
+  /// "en_attente" | "repondu"
+  responseStatus String?  @map("response_status")
+  responseDate  DateTime? @map("response_date")
+  responseDetail String?  @map("response_detail")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([clientId])
+  @@index([status])
+  @@index([type])
+  @@map("client_requests")
+}
+
+/// Registre des appels (entrants / sortants).
+model CallLog {
+  id          String    @id @default(uuid())
+  /// "entrant" | "sortant"
+  direction   String
+  callDate    DateTime  @map("call_date")
+  endDate     DateTime? @map("end_date")
+  /// "telephone" | "visioconference" | "autre"
+  channel     String    @default("telephone")
+  contactName String?   @map("contact_name")
+  structure   String?
+  subject     String?
+  notes       String?
+  clientId    String?   @map("client_id")
+  employeeId  String?   @map("employee_id")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([clientId])
+  @@index([callDate])
+  @@index([employeeId])
+  @@index([direction])
+  @@map("call_logs")
+}
+
+/// Suivi des pièces manquantes et relances associées à un dossier.
+model MissingDocument {
+  id           String    @id @default(uuid())
+  dossierId    String    @map("dossier_id")
+  typeDocument String    @map("type_document")
+  description  String?
+  /// "manquant" | "relance" | "reçu" | "annule"
+  status       String    @default("manquant")
+  relanceDate  DateTime? @map("relance_date")
+  notes        String?
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([dossierId])
+  @@index([status])
+  @@map("missing_documents")
+}
+
+/// Préparation des audiences et réunions.
+model Hearing {
+  id        String    @id @default(uuid())
+  /// "audience" | "reunion"
+  type      String
+  title     String
+  date      DateTime
+  location  String?
+  dossierId String?   @map("dossier_id")
+  attendees String?
+  notes     String?
+  /// "planifie" | "termine" | "annule"
+  status    String    @default("planifie")
+  createdBy String?   @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([dossierId])
+  @@index([date])
+  @@index([status])
+  @@map("hearings")
+}
+
+/// Suivi des formalités auprès des tribunaux et administrations.
+model CourtFormality {
+  id            String    @id @default(uuid())
+  title         String
+  /// "tribunal" | "administration"
+  type          String
+  entity        String    /// Nom de l'entité (tribunal, greffe, administration...)
+  /// "en_cours" | "soumis" | "finalise" | "rejete"
+  status        String    @default("en_cours")
+  dueDate       DateTime? @map("due_date")
+  completedDate DateTime? @map("completed_date")
+  dossierId     String?   @map("dossier_id")
+  notes         String?
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([dossierId])
+  @@index([status])
+  @@index([type])
+  @@map("court_formalities")
+}
+
+/// Ordres de missions confiés à des prestataires (huissiers, experts, etc.).
+model ProviderMission {
+  id            String    @id @default(uuid())
+  /// "huissier" | "expert" | "architecte" | "conseiller" | "clerc" | "autre"
+  profession    String
+  providerName  String    @map("provider_name")
+  reference     String?   /// Numéro d'ordre de mission
+  description   String?
+  /// "a_faire" | "en_cours" | "termine" | "facture" | "paye"
+  status        String    @default("a_faire")
+  amount        Int?
+  dueDate       DateTime? @map("due_date")
+  completedDate DateTime? @map("completed_date")
+  dossierId     String?   @map("dossier_id")
+  notes         String?
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([dossierId])
+  @@index([status])
+  @@index([profession])
+  @@map("provider_missions")
+}
+
+/// Gestion du courrier : réception, envoi et création de lettres.
+model Mail {
+  id          String    @id @default(uuid())
+  /// "entrant" | "sortant"
+  direction   String
+  mailDate    DateTime  @map("mail_date")
+  reference   String?
+  structure   String?   /// Structure / expéditeur / destinataire
+  contact     String?   /// Personne en relation
+  subject     String
+  body        String?   /// Contenu pour la création de lettres
+  /// "recu" | "a_traiter" | "traite" | "envoye" | "brouillon" | "signe"
+  status      String    @default("recu")
+  dossierId   String?   @map("dossier_id")
+  dossierLabel String?  @map("dossier_label")
+  signataireId String?  @map("signataire_id")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([dossierId])
+  @@index([signataireId])
+  @@index([direction])
+  @@index([status])
+  @@index([mailDate])
+  @@map("mails")
+}
+
+/// Codes MFA à usage unique envoyés par email.
+model MfaEmailCode {
+  id          String    @id @default(uuid())
+  email       String
+  code        String
+  purpose     String    /// "login" | "password-reset"
+  used        Boolean   @default(false)
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("mfa_email_codes")
+}
+
+/// Types d'absence (congé, maladie, permission, etc.).
+model LeaveType {
+  id                 String   @id @default(uuid())
+  code               String   @unique
+  libelle            String
+  deduitSoldeConge   Boolean  @default(false) @map("deduit_solde_conge")
+  necessiteJustificatif Boolean @default(false) @map("necessite_justificatif")
+  necessiteValidation Boolean @default(true) @map("necessite_validation")
+  remuneree          Boolean  @default(false)
+  actif              Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  requests LeaveRequest[]
+  @@map("leave_types")
+}
+
+/// Politique de congés du cabinet.
+model LeavePolicy {
+  id                 String   @id @default(uuid())
+  nom                String
+  joursParMois       Float    @default(2.0) @map("jours_par_mois")
+  /// "embauche" | "annee_civile"
+  debutAcquisition   String   @default("embauche") @map("debut_acquisition")
+  autoriserAnticipation Boolean @default(false) @map("autoriser_anticipation")
+  compterSamedi      Boolean  @default(true) @map("compter_samedi")
+  compterDimanche    Boolean  @default(false) @map("compter_dimanche")
+  exclureJoursFeries Boolean  @default(true) @map("exclure_jours_feries")
+  autoriserReport    Boolean  @default(false) @map("autoriser_report")
+  dureeReportMois    Int?     @map("duree_report_mois")
+  actif              Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  settings EmployeeLeaveSetting[]
+  @@map("leave_policies")
+}
+
+/// Paramétrage individuel d'un employé.
+model EmployeeLeaveSetting {
+  id                  String   @id @default(uuid())
+  employeeId          String   @unique @map("employee_id")
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  policyId            String   @map("policy_id")
+  policy              LeavePolicy @relation(fields: [policyId], references: [id])
+  joursParMois        Float?   @map("jours_par_mois")
+  dateDebutAcquisition DateTime? @map("date_debut_acquisition")
+  autoriserAnticipation Boolean? @map("autoriser_anticipation")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("employee_leave_settings")
+}
+
+/// Jours fériés.
+model Holiday {
+  id        String   @id @default(uuid())
+  dateJour  DateTime @unique @map("date_jour") @db.Date
+  libelle   String
+  national  Boolean  @default(true)
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("holidays")
+}
+
+/// Demande de congé ou absence.
+model LeaveRequest {
+  id                 String   @id @default(uuid())
+  employeeId         String   @map("employee_id")
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId        String   @map("leave_type_id")
+  leaveType          LeaveType @relation(fields: [leaveTypeId], references: [id])
+  /// Employé responsable approbateur (manager direct / RH).
+  approverId         String?  @map("approver_id")
+  dateDebut          DateTime @map("date_debut") @db.Date
+  dateFin            DateTime @map("date_fin") @db.Date
+  nombreJours        Float    @default(0) @map("nombre_jours")
+  motif              String?
+  justificatif       String?
+  /// "brouillon" | "soumise" | "en_correction" | "approuvee" | "rejetee" | "annulee" | "terminee"
+  statut             String   @default("brouillon") @map("statut")
+  commentaireValidation String? @map("commentaire_validation")
+  submittedAt        DateTime? @map("submitted_at")
+  decidedAt          DateTime? @map("decided_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  createdBy          String   @map("created_by")
+  updatedBy          String?  @map("updated_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  transactions      LeaveTransaction[]
+  approvals         LeaveApproval[]
+  comments          LeaveComment[]
+  @@index([employeeId])
+  @@index([statut])
+  @@index([dateDebut])
+  @@map("leave_requests")
+}
+
+/// Journal immuable des mouvements de solde.
+model LeaveTransaction {
+  id                String   @id @default(uuid())
+  employeeId        String   @map("employee_id")
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveRequestId    String?  @map("leave_request_id")
+  leaveRequest      LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  periodeDebut      DateTime @map("periode_debut") @db.Date
+  periodeFin        DateTime @map("periode_fin") @db.Date
+  /// "acquisition" | "report" | "consommation" | "annulation" | "ajustement" | "expiration"
+  typeTransaction   String   @map("type_transaction")
+  nombreJours       Float    @map("nombre_jours")
+  libelle           String
+  createdBy         String?  @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@index([typeTransaction])
+  @@map("leave_transactions")
+}
+
+/// Commentaires d'une demande d'absence.
+model LeaveComment {
+  id             String   @id @default(uuid())
+  leaveRequestId String   @map("leave_request_id")
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  authorId       String   @map("author_id")
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([leaveRequestId])
+  @@map("leave_comments")
+}
+
+/// Historique des actions de validation.
+model LeaveApproval {
+  id               String   @id @default(uuid())
+  leaveRequestId   String   @map("leave_request_id")
+  leaveRequest     LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  actorId          String   @map("actor_id")
+  ancienStatut     String   @map("ancien_statut")
+  nouveauStatut    String   @map("nouveau_statut")
+  commentaire      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([leaveRequestId])
+  @@index([actorId])
+  @@map("leave_approvals")
+}
+
+/// Assureur du personnel (assurance maladie / soins).
+model Insurer {
+  id                String   @id @default(uuid())
+  nom               String
+  adresse           String?
+  telephone         String?
+  telephoneSecondaire String? @map("telephone_secondaire")
+  email             String?
+  siteWeb           String?  @map("site_web")
+  referenceInterne  String?  @map("reference_interne")
+  /// "actif" | "inactif"
+  statut            String   @default("actif")
+  observations      String?
+  /// Gestionnaire de compte principal chez l'assureur.
+  managerNom        String?  @map("manager_nom")
+  managerFonction   String?  @map("manager_fonction")
+  managerTelephone  String?  @map("manager_telephone")
+  managerEmail      String?  @map("manager_email")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  contracts         InsuranceContract[]
+  @@map("insurers")
+}
+
+/// Contrat d'assurance du cabinet avec un assureur, généralement sur 12 mois.
+model InsuranceContract {
+  id                    String   @id @default(uuid())
+  insurerId             String   @map("insurer_id")
+  insurer               Insurer  @relation(fields: [insurerId], references: [id])
+  reference             String   @unique
+  dateDebut             DateTime @map("date_debut")
+  dateFin               DateTime @map("date_fin")
+  /// "individuel" | "familial" | "entreprise"
+  typeCouverture        String   @map("type_couverture")
+  devise                String   @default("XOF")
+  /// Pourcentage général de prise en charge (ex: 80.00 pour 80%).
+  tauxGeneral           Float    @map("taux_general")
+  /// Avance versée à l'assureur en début de période.
+  montantAvance         Int      @default(0) @map("montant_avance")
+  datePaiementAvance    DateTime? @map("date_paiement_avance")
+  modePaiementAvance    String?  @map("mode_paiement_avance")
+  referencePaiementAvance String? @map("reference_paiement_avance")
+  /// "brouillon" | "actif" | "expire" | "resilie" | "cloture"
+  statut                String   @default("brouillon") @map("statut")
+  conditions            String?
+  documentPath          String?  @map("document_path")
+  factureAssureurPath   String?  @map("facture_assureur_path")
+  chequePath            String?  @map("cheque_path")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  insuredEmployees    InsuredEmployee[]
+  quotes              InsuranceQuote[]
+  coverageRequests    CoverageRequest[]
+  invoices            MedicalInvoice[]
+  payments            InsurerPayment[]
+  closures            InsurancePeriodClosure[]
+  @@index([insurerId])
+  @@index([statut])
+  @@index([dateDebut, dateFin])
+  @@map("insurance_contracts")
+}
+
+/// Rattachement d'un employé à un contrat d'assurance.
+model InsuredEmployee {
+  id                  String   @id @default(uuid())
+  employeeId          String   @map("employee_id")
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contractId          String   @map("contract_id")
+  contract            InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  numeroAdherent      String?  @map("numero_adherent")
+  dateAdhesion        DateTime @map("date_adhesion")
+  dateFinCouverture   DateTime? @map("date_fin_couverture")
+  formule             String?
+  tauxParticulier     Float?   @map("taux_particulier")
+  plafondIndividuel   Int?     @map("plafond_individuel")
+  /// "actif" | "suspendu" | "sorti"
+  statut              String   @default("actif") @map("statut")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  dependents          EmployeeDependent[]
+  quotes              InsuranceQuote[]
+  coverageRequests    CoverageRequest[]
+  invoices            MedicalInvoice[]
+  @@unique([employeeId, contractId])
+  @@index([employeeId])
+  @@index([contractId])
+  @@index([statut])
+  @@map("insured_employees")
+}
+
+/// Ayant droit d'un employé assuré (membres de la famille).
+model EmployeeDependent {
+  id                  String   @id @default(uuid())
+  employeeId          String   @map("employee_id")
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  insuredEmployeeId   String?  @map("insured_employee_id")
+  insuredEmployee     InsuredEmployee? @relation(fields: [insuredEmployeeId], references: [id], onDelete: SetNull)
+  nom                 String
+  prenom              String
+  /// "M" | "F" | "autre"
+  sexe                String?
+  dateNaissance       DateTime? @map("date_naissance")
+  /// "conjoint" | "enfant" | "pere" | "mere" | "autre"
+  lienFamilial        String   @map("lien_familial")
+  numeroAdherent      String?  @map("numero_adherent")
+  dateDebutCouverture DateTime? @map("date_debut_couverture")
+  dateFinCouverture   DateTime? @map("date_fin_couverture")
+  tauxParticulier     Float?   @map("taux_particulier")
+  plafondParticulier  Int?     @map("plafond_particulier")
+  /// "actif" | "inactif"
+  statut              String   @default("actif") @map("statut")
+  justificatifPath    String?  @map("justificatif_path")
+  observations        String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  quotes              InsuranceQuote[]
+  coverageRequests    CoverageRequest[]
+  invoices            MedicalInvoice[]
+  @@index([employeeId])
+  @@index([insuredEmployeeId])
+  @@index([statut])
+  @@map("employee_dependents")
+}
+
+/// Prestataire médical (clinique, pharmacie, laboratoire...).
+model MedicalProvider {
+  id            String   @id @default(uuid())
+  nom           String
+  adresse       String?
+  telephone     String?
+  email         String?
+  typePrestataire String? @map("type_prestataire")
+  /// "actif" | "inactif"
+  statut        String   @default("actif") @map("statut")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  quotes              InsuranceQuote[]
+  coverageRequests    CoverageRequest[]
+  invoices            MedicalInvoice[]
+  @@map("medical_providers")
+}
+
+/// Devis médical estimatif avant soins.
+model InsuranceQuote {
+  id                    String   @id @default(uuid())
+  reference             String   @unique
+  insuredEmployeeId     String   @map("insured_employee_id")
+  insuredEmployee       InsuredEmployee @relation(fields: [insuredEmployeeId], references: [id], onDelete: Cascade)
+  dependentId           String?  @map("dependent_id")
+  dependent             EmployeeDependent? @relation(fields: [dependentId], references: [id], onDelete: SetNull)
+  contractId            String   @map("contract_id")
+  contract              InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  providerId            String   @map("provider_id")
+  provider              MedicalProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  dateDevis             DateTime @map("date_devis")
+  dateValidite          DateTime? @map("date_validite")
+  typeSoin              String   @map("type_soin")
+  montantTotal          Int      @map("montant_total")
+  tauxApplique          Float    @map("taux_applique")
+  partCabinetEstimee    Int      @default(0) @map("part_cabinet_estimee")
+  partEmployeEstimee    Int      @default(0) @map("part_employe_estimee")
+  /// "brouillon" | "valide" | "expire" | "annule"
+  statut                String   @default("brouillon") @map("statut")
+  documentPath          String?  @map("document_path")
+  observations          String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  coverageRequests    CoverageRequest[]
+  @@index([insuredEmployeeId])
+  @@index([contractId])
+  @@index([providerId])
+  @@map("insurance_quotes")
+}
+
+/// Dossier de prise en charge soumis à l'assureur sur la base d'un devis.
+model CoverageRequest {
+  id                          String   @id @default(uuid())
+  reference                   String   @unique
+  insuredEmployeeId           String   @map("insured_employee_id")
+  insuredEmployee             InsuredEmployee @relation(fields: [insuredEmployeeId], references: [id], onDelete: Cascade)
+  dependentId                 String?  @map("dependent_id")
+  dependent                   EmployeeDependent? @relation(fields: [dependentId], references: [id], onDelete: SetNull)
+  contractId                  String   @map("contract_id")
+  contract                    InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  quoteId                     String?  @map("quote_id")
+  quote                       InsuranceQuote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  providerId                  String   @map("provider_id")
+  provider                    MedicalProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  dateSoinsPrevue             DateTime @map("date_soins_prevue")
+  montantEstime               Int      @map("montant_estime")
+  tauxDemande                 Float    @map("taux_demande")
+  montantPrisEnChargeEstime   Int      @default(0) @map("montant_pris_en_charge_estime")
+  montantEmployeEstime        Int      @default(0) @map("montant_employe_estime")
+  /// "brouillon" | "soumise" | "envoyee" | "complement" | "approuvee" | "approuvee_partielle" | "rejetee" | "expiree" | "annulee" | "consommee"
+  statut                      String   @default("brouillon") @map("statut")
+  dateEnvoi                   DateTime? @map("date_envoi")
+  dateReponse                 DateTime? @map("date_reponse")
+  dateExpiration              DateTime? @map("date_expiration")
+  commentaireAssureur         String?  @map("commentaire_assureur")
+  createdBy                   String   @map("created_by")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  invoices            MedicalInvoice[]
+  @@index([insuredEmployeeId])
+  @@index([contractId])
+  @@index([quoteId])
+  @@index([providerId])
+  @@index([statut])
+  @@map("coverage_requests")
+}
+
+/// Facture médicale rattachée à un contrat, un bénéficiaire et éventuellement une prise en charge.
+model MedicalInvoice {
+  id                    String   @id @default(uuid())
+  referenceInterne      String   @unique @map("reference_interne")
+  numeroFacture         String?  @map("numero_facture")
+  insuredEmployeeId     String   @map("insured_employee_id")
+  insuredEmployee       InsuredEmployee @relation(fields: [insuredEmployeeId], references: [id], onDelete: Cascade)
+  dependentId           String?  @map("dependent_id")
+  dependent             EmployeeDependent? @relation(fields: [dependentId], references: [id], onDelete: SetNull)
+  contractId            String   @map("contract_id")
+  contract              InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  coverageRequestId     String?  @map("coverage_request_id")
+  coverageRequest       CoverageRequest? @relation(fields: [coverageRequestId], references: [id], onDelete: SetNull)
+  providerId            String   @map("provider_id")
+  provider              MedicalProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  dateSoins             DateTime @map("date_soins")
+  dateFacture           DateTime @map("date_facture")
+  typeSoin              String   @map("type_soin")
+  montantTotal          Int      @map("montant_total")
+  tauxApplique          Float    @map("taux_applique")
+  partCabinet           Int      @default(0) @map("part_cabinet")
+  partEmploye           Int      @default(0) @map("part_employe")
+  montantPayeEmploye    Int      @default(0) @map("montant_paye_employe")
+  resteAPayerEmploye    Int      @default(0) @map("reste_a_payer_employe")
+  /// "brouillon" | "soumise" | "validee" | "payee_cabinet" | "rejetee" | "annulee"
+  statut                String   @default("brouillon") @map("statut")
+  /// "non_paye" | "partiel" | "paye" | "exonere" | "annule"
+  statutPaiementEmploye String   @default("non_paye") @map("statut_paiement_employe")
+  justificatifPath      String?  @map("justificatif_path")
+  factureAssureurPath   String?  @map("facture_assureur_path")
+  chequePath            String?  @map("cheque_path")
+  commentaire           String?
+  createdBy             String   @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  payments            EmployeeInsurancePayment[]
+  @@index([insuredEmployeeId])
+  @@index([dependentId])
+  @@index([contractId])
+  @@index([coverageRequestId])
+  @@index([providerId])
+  @@index([statut])
+  @@map("medical_invoices")
+}
+
+/// Paiement effectué par l'employé sur sa part d'une facture médicale.
+model EmployeeInsurancePayment {
+  id                 String         @id @default(uuid())
+  invoiceId          String         @map("invoice_id")
+  invoice            MedicalInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  montant            Int
+  datePaiement       DateTime       @map("date_paiement")
+  /// "especes" | "cheque" | "virement" | "mobile_money" | "autre"
+  modePaiement       String         @map("mode_paiement")
+  referencePaiement  String?        @map("reference_paiement")
+  recuPath           String?        @map("recu_path")
+  receivedBy         String         @map("received_by")
+  observations       String?
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@map("employee_insurance_payments")
+}
+
+/// Paiements versés à l'assureur (avance, complément, remboursement, crédit).
+/// Statut : "brouillon" | "approuve" | "paye" | "annule".
+model InsurerPayment {
+  id                String            @id @default(uuid())
+  contractId        String            @map("contract_id")
+  contract          InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  /// "avance" | "complement" | "remboursement" | "credit"
+  typePaiement      String            @map("type_paiement")
+  montant           Int
+  datePaiement      DateTime          @map("date_paiement")
+  /// "especes" | "cheque" | "virement" | "mobile_money" | "autre"
+  modePaiement      String            @map("mode_paiement")
+  referencePaiement String?           @map("reference_paiement")
+  justificatifPath  String?           @map("justificatif_path")
+  /// "brouillon" | "approuve" | "paye" | "annule"
+  statut            String            @default("brouillon") @map("statut")
+  approvedBy        String?           @map("approved_by")
+  approvedAt        DateTime?         @map("approved_at")
+  paidBy            String?           @map("paid_by")
+  paidAt            DateTime?         @map("paid_at")
+  accountingEntryId String?           @map("accounting_entry_id")
+  accountingEntry   AccountingEntry?  @relation(fields: [accountingEntryId], references: [id], onDelete: SetNull)
+  createdBy         String            @map("created_by")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([contractId])
+  @@index([typePaiement])
+  @@index([statut])
+  @@index([accountingEntryId])
+  @@map("insurer_payments")
+}
+
+/// Clôture de période d'un contrat d'assurance.
+model InsurancePeriodClosure {
+  id                  String            @id @default(uuid())
+  contractId          String            @map("contract_id")
+  contract            InsuranceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  periodeDebut        DateTime          @map("periode_debut")
+  periodeFin          DateTime          @map("periode_fin")
+  totalFactures       Int               @default(0) @map("total_factures")
+  totalPartEmployes   Int               @default(0) @map("total_part_employes")
+  totalPayeEmployes   Int               @default(0) @map("total_paye_employes")
+  totalPartCabinet    Int               @default(0) @map("total_part_cabinet")
+  totalAvances        Int               @default(0) @map("total_avances")
+  soldeAPayer         Int               @default(0) @map("solde_a_payer")
+  creditAReporter     Int               @default(0) @map("credit_a_reporter")
+  /// "ouverte" | "controle" | "cloturee" | "rouverte"
+  statut              String            @default("ouverte") @map("statut")
+  validePar           String?           @map("valide_par")
+  dateValidation      DateTime?         @map("date_validation")
+  observations        String?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  @@index([contractId])
+  @@index([statut])
+  @@map("insurance_period_closures")
+}
+
+// ------------------------------------------------------------------
+// Module « Démarches administratives » (foncier, urbanisme, fiscalité)
+// ------------------------------------------------------------------
+
+/// Catalogue paramétrable des types de démarches (URB_CONSTRUIRE, CAD_NICAD…).
+/// L'administrateur du cabinet peut modifier autorités, pièces, modèles,
+/// taxes, délais et règles de validation — rien n'est codé en dur dans les pages.
+model DemarcheType {
+  id                   String  @id @default(uuid())
+  code                 String  @unique
+  libelle              String
+  /// "URBANISME" | "CADASTRE" | "FISCALITE" | "DOMAINES" | "LIVRE_FONCIER" | "TRANSVERSAL"
+  famille              String
+  /// Description de l'autorité / interlocuteur principal (texte, paramétrable).
+  autoritePrincipale   String?
+  /// Nature du résultat attendu (autorisation, certificat, titre foncier…).
+  natureResultat       String?
+  /// Sous-types / précisions exigés pour la qualification : [{ code, libelle }].
+  sousTypes            Json?
+  /// Démarche ambiguë : sous-type, document visé et autorité obligatoires
+  /// avant toute préparation / dépôt (état A_QUALIFIER).
+  qualificationObligatoire Boolean @default(false)
+  /// Une fiche parcelle / bien est requise pour ce type de démarche.
+  parcelleRequise      Boolean @default(false)
+  /// Validation renforcée par avocat / fiscaliste avant dépôt.
+  validationAvocat     Boolean @default(false)
+  /// Dossier sensible (succession, fiscalité, sûretés) : accès restreint.
+  sensible             Boolean @default(false)
+  /// Nombre d'exemplaires du paquet de dépôt (ex. 2 dossier simple, 3 complexe).
+  nbExemplaires        Int     @default(2)
+  /// Délai (jours) sans mouvement avant relance interne automatique.
+  delaiRelanceJours    Int     @default(15)
+  /// Délai légal paramétrable (enregistrement, recours…) en jours.
+  delaiLegalJours      Int?
+  /// Règles de risque / pré-contrôles affichés (tableau de chaînes).
+  reglesRisque         Json?
+  /// Avertissement affiché sur la démarche (« sous réserve de recevabilité… »).
+  avertissement        String?
+  ordre                Int     @default(0)
+  actif                Boolean @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  pieces    DemarcheTypePiece[]
+  modeles   DemarcheModele[]
+  demarches Demarche[]
+
+  @@map("demarche_types")
+}
+
+/// Pièce attendue dans la check-list d'un type de démarche (paramétrable).
+model DemarcheTypePiece {
+  id       String       @id @default(uuid())
+  typeId   String
+  type     DemarcheType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  code     String
+  libelle  String
+  /// DOCUMENT_INTERNE_CABINET | DOCUMENT_ADMINISTRATIF_A_OBTENIR |
+  /// PIECE_CLIENT | PIECE_TECHNIQUE | PREUVE_DE_DEPOT_ET_SUIVI
+  categorie String
+  /// OBLIGATOIRE | CONDITIONNELLE | FACULTATIVE
+  niveau   String  @default("OBLIGATOIRE")
+  /// Condition d'exigibilité lisible (« si dépôt par le cabinet »…).
+  condition String?
+  /// CLIENT | CABINET | ADMINISTRATION | ARCHITECTE | GEOMETRE | NOTAIRE | AUTRE
+  sourceAttendue String @default("CLIENT")
+  ordre    Int     @default(0)
+  actif    Boolean @default(true)
+
+  @@unique([typeId, code])
+  @@index([typeId])
+  @@map("demarche_type_pieces")
+}
+
+/// Autorité / bureau compétent (mairie, bureau du cadastre, centre fiscal…).
+/// Paramétrable par l'administrateur : adresses et contacts évolutifs.
+model DemarcheAutorite {
+  id           String  @id @default(uuid())
+  nom          String
+  /// MAIRIE | CADASTRE | DGID | CONSERVATION | CENTRE_FISCAL | TRIBUNAL | AUTRE
+  typeAutorite String  @default("AUTRE")
+  commune      String?
+  departement  String?
+  region       String?
+  adresse      String?
+  contact      String?
+  actif        Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  demarches    Demarche[]
+
+  @@map("demarche_autorites")
+}
+
+/// Fiche demandeur réutilisable (personne physique ou morale).
+/// Distincte de `Client` : le demandeur peut être un héritier, un mandant,
+/// un bénéficiaire réel ou un tiers non client du cabinet.
+model Demandeur {
+  id            String  @id @default(uuid())
+  /// PHYSIQUE | MORALE
+  typePersonne  String  @default("PHYSIQUE")
+  // Personne physique
+  civilite      String?
+  nom           String
+  prenoms       String?
+  dateNaissance DateTime?
+  lieuNaissance String?
+  nationalite   String?
+  profession    String?
+  situationMatrimoniale String?
+  pieceIdentiteType     String?  // CNI | PASSEPORT | AUTRE
+  pieceIdentiteNumero   String?
+  pieceIdentiteExpiration DateTime?
+  // Personne morale
+  raisonSociale String?
+  formeJuridique String?
+  ninea         String?
+  rccm          String?
+  siegeSocial   String?
+  representantLegal String?
+  qualiteSignataire String?
+  piecePouvoir  String?
+  // Coordonnées communes
+  adresse       String?
+  commune       String?
+  departement   String?
+  region        String?
+  telephone     String?
+  whatsapp      String?
+  email         String?
+  adresseCorrespondance String?
+  // Fiscalité
+  centreFiscal  String?
+  numeroContribuable String?
+  exerciceFiscal String?
+  // Mandat / procuration : { existe, date, etendue, signataire,
+  //   pieceIdentiteMandant, expiration, originalDetenu }
+  mandat        Json?
+  // Confidentialité : { baseTraitement, consentementCommunication,
+  //   preferencesNotification, niveauConfidentialite }
+  confidentialite Json?
+  /// Lien optionnel vers un client existant du cabinet.
+  clientId      String?
+  client        Client? @relation(fields: [clientId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  demarchesDemandeur  Demarche[]      @relation("DemarcheDemandeur")
+  demarchesMandataire Demarche[]      @relation("DemarcheMandataire")
+  parties             DemarchePartie[]
+  transactionParties  TransactionPartie[]
+  biens               Bien[]
+
+  @@index([clientId])
+  @@map("demandeurs")
+}
+
+/// Fiche parcelle / bien immobilier réutilisable et vérifiable.
+model Parcelle {
+  id              String  @id @default(uuid())
+  region          String?
+  departement     String?
+  commune         String?
+  quartier        String?  // quartier / village / lotissement
+  adresse         String?  // adresse ou indications de localisation
+  nicad           String?
+  titreFoncier    String?
+  /// bail | droit_superficie | permis_occuper | autorisation_occuper |
+  /// deliberation | acte_attribution | autre
+  typeDroit       String?
+  referenceDroit  String?  // numéro du bail, permis, acte d'attribution…
+  lot             String?
+  bloc            String?
+  ilot            String?
+  numeroParcelle  String?
+  section         String?
+  superficie      Float?
+  uniteSuperficie String?  // m2 | ha
+  /// { lat, lng }
+  coordonnees     Json?
+  /// [{ nom, qualite, quotePart }]
+  titulaires      Json?
+  origineDroit    String?
+  dateActe        DateTime?
+  referencesEnregistrement String?
+  /// Hypothèques, prénotations, saisies, servitudes, contentieux connus.
+  chargesInscriptions String?
+  usageActuel     String?
+  usageProjete    String?
+  referencesPlans String?
+  auteurPlans     String?
+  /// DECLARE | PIECES_RECUES | A_VERIFIER | VERIFIE | INCOHERENT
+  etatVerification String @default("DECLARE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  demarches       Demarche[]
+  biens           Bien[]
+
+  @@index([nicad])
+  @@map("parcelles")
+}
+
+/// Démarche administrative (foncier, urbanisme, fiscalité) préparée et
+/// suivie par le cabinet — l'acte final reste délivré par l'administration.
+model Demarche {
+  id             String       @id @default(uuid())
+  /// Référence interne automatique : DEM-AAAA-NNNN.
+  reference      String       @unique
+  typeId         String
+  type           DemarcheType @relation(fields: [typeId], references: [id])
+  /// Sous-type de qualification (code dans type.sousTypes ou texte libre).
+  sousType       String?
+  /// BROUILLON → A_QUALIFIER → ATTENTE_CLIENT → PIECES_PARTIELLES →
+  /// CONTROLE_INTERNE → A_CORRIGER → PRET_VALIDATION → PRET_A_DEPOT →
+  /// DEPOSE → EN_INSTRUCTION → COMPLEMENT_DEMANDE → RELANCE →
+  /// ACCEPTE → DOCUMENT_DELIVRE → REFUSE → CLASSE_SANS_SUITE →
+  /// RECOURS_A_ETUDIER → CLOTURE → ARCHIVE
+  statut         String       @default("BROUILLON")
+  /// BASSE | NORMALE | HAUTE | URGENTE
+  priorite       String       @default("NORMALE")
+  /// STANDARD | ELEVE
+  risque         String       @default("STANDARD")
+  /// Rattachement au dossier juridique : GED, RBAC, confidentialité.
+  dossierId      String
+  dossier        Dossier      @relation(fields: [dossierId], references: [id])
+  demandeurId    String?
+  demandeur      Demandeur?   @relation("DemarcheDemandeur", fields: [demandeurId], references: [id])
+  mandataireId   String?
+  mandataire     Demandeur?   @relation("DemarcheMandataire", fields: [mandataireId], references: [id])
+  parcelleId     String?
+  parcelle       Parcelle?    @relation(fields: [parcelleId], references: [id])
+  autoriteId     String?
+  autorite       DemarcheAutorite? @relation(fields: [autoriteId], references: [id])
+  /// Autorité saisie librement quand non référencée au catalogue.
+  autoriteLibre  String?
+  adresseDepot   String?
+  contactAutorite String?
+  objet          String?
+  finalite       String?
+  fondement      String?
+  referenceActes String?
+  /// Données de qualification préalable (document/inscription visée, motif…).
+  qualification  Json?
+  urgent         Boolean      @default(false)
+  dateLimite     DateTime?
+  responsableId  String?
+  assistanteId   String?
+  agentLiaisonId String?
+  // Dépôt
+  dateDepot      DateTime?
+  deposePar      String?
+  canalDepot     String?
+  numeroRecepisse String?
+  prochaineRelance DateTime?
+  // Décision
+  decisionDate   DateTime?
+  /// ACCEPTE | REFUSE | COMPLEMENT | CLASSE_SANS_SUITE
+  decisionType   String?
+  decisionNotes  String?
+  motifRejet     String?
+  voieRecours    String?
+  recoursEcheance DateTime?
+  /// Document administratif délivré (GED du dossier).
+  documentDelivreId String?
+  remisAuClientLe   DateTime?
+  // Finances (séparées : honoraires vs débours vs taxes vs avances)
+  honoraires     Int @default(0)
+  debours        Int @default(0)
+  taxes          Int @default(0)
+  timbres        Int @default(0)
+  avancesRecues  Int @default(0)
+  /// Dérogations aux pièces obligatoires : [{ pieceId, motif, validePar, date }]
+  derogations    Json?
+  noteRecevabilite String?
+  valideParId    String?
+  valideLe       DateTime?
+  creePar        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archiveLe      DateTime?
+
+  /// Transaction orchesttrant cette démarche (formalité externe
+  /// d'une vente / bail : enregistrement, conservation, cadastre…).
+  transactionId  String?
+  transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  formalites     TransactionFormalite[]
+
+  pieces     DemarchePiece[]
+  evenements DemarcheEvenement[]
+  frais      DemarcheFrais[]
+  parties    DemarchePartie[]
+
+  @@index([dossierId])
+  @@index([statut])
+  @@index([typeId])
+  @@index([demandeurId])
+  @@index([prochaineRelance])
+  @@index([transactionId])
+  @@map("demarches")
+}
+
+/// Co-demandeur, mandataire ou bénéficiaire réel rattaché à une démarche.
+model DemarchePartie {
+  id          String    @id @default(uuid())
+  demarcheId  String
+  demarche    Demarche  @relation(fields: [demarcheId], references: [id], onDelete: Cascade)
+  demandeurId String
+  demandeur   Demandeur @relation(fields: [demandeurId], references: [id], onDelete: Cascade)
+  /// DEMANDEUR | CO_DEMANDEUR | MANDATAIRE | BENEFICIAIRE
+  role        String
+  ordre       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@unique([demarcheId, demandeurId, role])
+  @@index([demarcheId])
+  @@map("demarche_parties")
+}
+
+/// Ligne de check-list matérialisée sur une démarche (copie du template
+/// du type, modifiable : pièces complémentaires exigées par l'administration).
+model DemarchePiece {
+  id          String   @id @default(uuid())
+  demarcheId  String
+  demarche    Demarche @relation(fields: [demarcheId], references: [id], onDelete: Cascade)
+  code        String
+  libelle     String
+  categorie   String
+  /// OBLIGATOIRE | CONDITIONNELLE | FACULTATIVE
+  niveau      String   @default("OBLIGATOIRE")
+  condition   String?
+  sourceAttendue String @default("CLIENT")
+  /// NON_DEMANDEE | DEMANDEE | RECUE | ILLISIBLE | EXPIREE |
+  /// VALIDEE | NON_APPLICABLE | REJETEE
+  statut      String   @default("NON_DEMANDEE")
+  /// Document GED du dossier attaché à la pièce.
+  documentId  String?
+  recueLe     DateTime?
+  verifiePar  String?
+  verifieLe   DateTime?
+  expireLe    DateTime?
+  commentaire String?
+  visibleClient Boolean @default(false)
+  ordre       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([demarcheId])
+  @@map("demarche_pieces")
+}
+
+/// Journal opérationnel : dépôts, relances, compléments, décisions,
+/// remises de documents, notes et changements de statut.
+model DemarcheEvenement {
+  id          String   @id @default(uuid())
+  demarcheId  String
+  demarche    Demarche @relation(fields: [demarcheId], references: [id], onDelete: Cascade)
+  /// DEPOT | RELANCE | COMPLEMENT | DECISION | REMISE | NOTE |
+  /// CHANGEMENT_STATUT | VALIDATION | DEMANDE_PIECE_CLIENT
+  type        String
+  date        DateTime @default(now())
+  description String?
+  details     Json?
+  creePar     String?
+  createdAt   DateTime @default(now())
+
+  @@index([demarcheId])
+  @@index([date])
+  @@map("demarche_evenements")
+}
+
+/// Débours, taxes, timbres, avances — séparés des honoraires du cabinet.
+model DemarcheFrais {
+  id          String   @id @default(uuid())
+  demarcheId  String
+  demarche    Demarche @relation(fields: [demarcheId], references: [id], onDelete: Cascade)
+  /// HONORAIRE | DEBOURS | TAXE | TIMBRE | AVANCE_CLIENT
+  nature      String
+  libelle     String
+  montant     Int      @default(0)
+  date        DateTime @default(now())
+  /// Numéro de quittance / référence de paiement.
+  quittance   String?
+  /// Justificatif dans la GED du dossier.
+  documentId  String?
+  /// Rapprochement comptable effectué (bloque la clôture sinon).
+  rapproche   Boolean  @default(false)
+  creePar     String?
+  createdAt   DateTime @default(now())
+
+  @@index([demarcheId])
+  @@map("demarche_frais")
+}
+
+/// Modèle de document à variables ({{cle|Libellé}} / [Libellé]) rattaché
+/// à un type de démarche — ou transversal quand typeId est null.
+model DemarcheModele {
+  id      String        @id @default(uuid())
+  code    String        @unique  // TPL_*
+  titre   String
+  typeId  String?
+  type    DemarcheType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  contenu String        @db.Text
+  ordre   Int           @default(0)
+  actif   Boolean       @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([typeId])
+  @@map("demarche_modeles")
+}
+
+
+// ==================================================================
+// Module « Transactions & contrats » (ventes, baux, mandats)
+// Le cabinet intervient comme conseil / intermédiaire : il contrôle
+// les pièces, prépare les avant-contrats et contrats, coordonne le
+// notaire, organise l'enregistrement, suit les paiements et archive.
+// Une vente sous titre foncier n'est achevée qu'après inscription de
+// l'acquéreur au livre foncier (Conservation foncière).
+// ==================================================================
+
+/// Bien objet d'une transaction ou d'un mandat (immeuble, terrain,
+/// appartement, studio, local…). Peut être rattaché à une fiche parcelle
+/// du module foncier pour la traçabilité cadastrale.
+model Bien {
+  id             String  @id @default(uuid())
+  /// TERRAIN | IMMEUBLE | APPARTEMENT | STUDIO | VILLA |
+  /// LOCAL_COMMERCIAL | BUREAU | MEUBLE | AUTRE
+  nature         String  @default("IMMEUBLE")
+  designation    String
+  adresse        String?
+  quartier       String?
+  commune        String?
+  departement    String?
+  region         String?
+  superficie     Float?
+  uniteSuperficie String? // m2 | ha
+  nbPieces       Int?
+  nbChambres     Int?
+  etage          String?
+  equipements    String?
+  /// Référence interne ou externe du bien (BIEN-…).
+  referenceBien  String?
+  /// titre_foncier | bail | droit_superficie | permis_occuper |
+  /// autorisation_occuper | propriete_coutumiere | autre
+  typeDroit      String?
+  referenceDroit String?
+  /// DECLARE | PIECES_RECUES | A_VERIFIER | VERIFIE | INCOHERENT
+  etatVerification String @default("DECLARE")
+  /// LIBRE | LOUE | OCCUPE | EN_TRANSACTION | VENDU
+  occupation     String?
+  occupants      String?  // locataires, sous-locataires, occupants connus
+  charges        String?  // hypothèques, saisies, prénotations, servitudes
+  loyerMensuel   Int?
+  /// Lien vers la fiche parcelle foncière, le cas échéant.
+  parcelleId     String?
+  parcelle       Parcelle? @relation(fields: [parcelleId], references: [id])
+  /// Propriétaire / titulaire déclaré (fiche demandeur).
+  proprietaireId String?
+  proprietaire   Demandeur? @relation(fields: [proprietaireId], references: [id])
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions   TransactionBien[]
+
+  @@index([nature])
+  @@index([commune])
+  @@index([parcelleId])
+  @@map("biens")
+}
+
+/// Type de transaction / contrat (vente TF, promesse, bail, mandat…) —
+/// paramétrable : workflow appliqué, check-lists, validations exigées.
+model TransactionType {
+  id             String  @id @default(uuid())
+  code           String  @unique // VENTE_IMMOBILIER_TF, BAIL_COMMERCIAL…
+  libelle        String
+  /// VENTE_IMMOBILIER | VENTE_AUTRE | BAIL | AVENANT_RESILIATION |
+  /// MANDAT | ETAT_LIEUX | AUTRE
+  famille        String
+  /// VENTE_TF | BAIL | GENERIQUE — workflow de statuts appliqué.
+  workflow       String  @default("GENERIQUE")
+  /// Interlocuteurs principaux (notaire, DGID, Conservation…).
+  circuitPrincipal String?
+  /// Un bien doit être rattaché à la transaction.
+  bienRequis     Boolean @default(true)
+  /// Circuit notarial obligatoire (mutation sous titre foncier…).
+  notaireObligatoire Boolean @default(false)
+  /// La mutation n'est achevée qu'après inscription au livre foncier :
+  /// la clôture exige la preuve d'inscription de l'acquéreur.
+  mutationFonciere Boolean @default(false)
+  /// La formalité d'enregistrement doit être évaluée / suivie.
+  enregistrementAEvaluer Boolean @default(false)
+  /// Qualification préalable obligatoire (droit sur le bien à qualifier).
+  qualificationObligatoire Boolean @default(false)
+  /// Validation par un avocat avant signature / dépôt.
+  validationAvocat Boolean @default(false)
+  /// Dossier sensible (succession, sûretés, fiscalité) : accès restreint.
+  sensible       Boolean @default(false)
+  /// Nombre d'exemplaires originaux du contrat / paquet.
+  nbExemplaires  Int     @default(2)
+  /// Délai (jours) sans mouvement avant relance interne.
+  delaiRelanceJours Int  @default(15)
+  avertissement  String?
+  ordre          Int     @default(0)
+  actif          Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  pieces       TransactionTypePiece[]
+  modeles      TransactionModele[]
+  transactions Transaction[]
+
+  @@map("transaction_types")
+}
+
+/// Pièce attendue dans la check-list d'un type de transaction.
+/// `partieConcernee` indique à qui la pièce est demandée (vendeur,
+/// acheteur, bailleur, locataire, garant…).
+model TransactionTypePiece {
+  id       String          @id @default(uuid())
+  typeId   String
+  type     TransactionType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  code     String
+  libelle  String
+  /// DOCUMENT_INTERNE_CABINET | DOCUMENT_ADMINISTRATIF_A_OBTENIR |
+  /// PIECE_CLIENT | PIECE_TECHNIQUE | PREUVE_DE_DEPOT_ET_SUIVI |
+  /// ACTE_NOTARIE | CONTRAT_SIGNE
+  categorie String
+  /// OBLIGATOIRE | CONDITIONNELLE | FACULTATIVE
+  niveau   String  @default("OBLIGATOIRE")
+  /// Condition d'exigibilité lisible.
+  condition String?
+  /// VENDEUR | ACHETEUR | BAILLEUR | LOCATAIRE | GARANT | MANDANT |
+  /// CABINET | NOTAIRE | TOUTES
+  partieConcernee String @default("TOUTES")
+  /// CLIENT | CABINET | ADMINISTRATION | ARCHITECTE | GEOMETRE |
+  /// NOTAIRE | AUTRE
+  sourceAttendue String @default("CLIENT")
+  ordre    Int     @default(0)
+  actif    Boolean @default(true)
+
+  @@unique([typeId, code])
+  @@index([typeId])
+  @@map("transaction_type_pieces")
+}
+
+/// Transaction / contrat piloté par le cabinet en qualité de conseil et
+/// d'intermédiaire. Toujours rattachée à un dossier juridique (GED, RBAC).
+model Transaction {
+  id             String          @id @default(uuid())
+  /// Référence interne automatique : TRX-AAAA-NNNN.
+  reference      String          @unique
+  typeId         String
+  type           TransactionType @relation(fields: [typeId], references: [id])
+  sousType       String?
+  /// Statut du workflow (dépend du type : VENTE_TF | BAIL | GENERIQUE).
+  statut         String          @default("BROUILLON")
+  /// Blocage orthogonal : code BLOQUE_* + motif documenté.
+  blocage        String?
+  blocageMotif   String?
+  /// BASSE | NORMALE | HAUTE | URGENTE
+  priorite       String          @default("NORMALE")
+  /// STANDARD | ELEVE
+  risque         String          @default("STANDARD")
+  /// Rattachement au dossier juridique (GED, RBAC, confidentialité).
+  dossierId      String
+  dossier        Dossier         @relation(fields: [dossierId], references: [id])
+  // Conditions financières
+  prix           Int?            // prix de vente
+  devise         String          @default("XOF")
+  loyer          Int?
+  depotGarantie  Int?
+  avanceLoyer    Int?
+  /// Échéancier : [{ date, montant, objet }]
+  echeancier     Json?
+  conditionsSuspensives String?
+  jourEcheanceLoyer Int?
+  // Circuit notarial et foncier (vente sous titre foncier)
+  notaireNom     String?
+  notaireEtude   String?
+  notaireContact String?
+  mandatSigne    Boolean         @default(false)
+  documentMandatId String?
+  etatDroitsReelsObtenu Boolean  @default(false)
+  depotConservationLe DateTime?
+  /// Inscription de l'acquéreur au livre foncier : preuve de fin de mutation.
+  mutationInscrite   Boolean     @default(false)
+  mutationInscriteLe DateTime?
+  documentMutationId String?
+  // Bail / occupation
+  dateEffet      DateTime?
+  dateFin        DateTime?
+  dureeMois      Int?
+  renouvellement String?
+  droitDeLouerVerifie Boolean    @default(false)
+  etatLieuxEntreeFait  Boolean   @default(false)
+  etatLieuxSortieFait  Boolean   @default(false)
+  // Bail — conditions financières détaillées (inspiré GESTIMMO)
+  chargesMensuelles Int?
+  /// FIXE | POURCENTAGE | INCLUSES
+  chargesMode     String?
+  chargesIncluses Boolean     @default(false)
+  /// VIREMENT | ESPECES | CHEQUE | PRELEVEMENT | MOBILE_MONEY
+  modePaiementLoyer String?
+  /// Clauses particulières du bail : [String].
+  clausesParticulieres Json?
+  // Mandat — type et commission de l'intermédiaire
+  /// GESTION | LOCATION | SIMPLE | EXCLUSIF | AUTRE
+  typeMandat      String?
+  /// POURCENTAGE | FIXE
+  commissionType  String?
+  commissionValeur Float?
+  /// Base de calcul de la commission (ex. "loyers encaissés TTC").
+  commissionBase  String?
+  // Vente — décomposition financière (prix total = net + honoraires + taxes + frais)
+  honorairesAgence Int?
+  tva              Int?
+  taxesMunicipales Int?
+  fraisNotaire     Int?
+  netVendeur       Int?
+  // Général
+  objet          String?
+  qualification  Json?
+  signaturePrevue DateTime?
+  /// Date de signature de l'avant-contrat ou de l'acte / bail.
+  acteSigneLe    DateTime?
+  /// Contrat ou acte signé dans la GED du dossier.
+  documentActeId String?
+  remisAuClientLe DateTime?
+  responsableId  String?
+  assistanteId   String?
+  // Finances du cabinet (jamais le prix de vente ni les fonds clients)
+  honoraires     Int @default(0)
+  debours        Int @default(0)
+  avancesRecues  Int @default(0)
+  /// Dérogations motivées aux pièces obligatoires.
+  derogations    Json?
+  valideParId    String?
+  valideLe       DateTime?
+  creePar        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archiveLe      DateTime?
+
+  parties    TransactionPartie[]
+  pieces     TransactionPiece[]
+  evenements TransactionEvenement[]
+  paiements  TransactionPaiement[]
+  formalites TransactionFormalite[]
+  biens      TransactionBien[]
+  demarches  Demarche[]
+  echeances  TransactionEcheance[]
+  etatsLieux EtatLieux[]
+
+  @@index([dossierId])
+  @@index([statut])
+  @@index([typeId])
+  @@map("transactions")
+}
+
+/// Bien rattaché à une transaction (principal ou annexe — un mandat de
+/// gestion peut couvrir plusieurs biens).
+model TransactionBien {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  bienId        String
+  bien          Bien        @relation(fields: [bienId], references: [id])
+  /// PRINCIPAL | ANNEXE
+  role          String      @default("PRINCIPAL")
+  createdAt     DateTime    @default(now())
+
+  @@unique([transactionId, bienId])
+  @@index([bienId])
+  @@map("transaction_biens")
+}
+
+/// Partie à la transaction : vendeur, acheteur, bailleur, locataire,
+/// garant, mandant… Le cabinet n'y figure jamais comme partie au contrat.
+model TransactionPartie {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// VENDEUR | ACHETEUR | BAILLEUR | LOCATAIRE | GARANT | MANDANT |
+  /// MANDATAIRE | NOTAIRE | BENEFICIAIRE | AUTRE
+  role          String
+  /// Lien vers une fiche demandeur réutilisable (personne identifiée).
+  demandeurId   String?
+  demandeur     Demandeur?  @relation(fields: [demandeurId], references: [id])
+  /// Lien vers un client du cabinet, le cas échéant.
+  clientId      String?
+  client        Client?     @relation(fields: [clientId], references: [id])
+  /// Identification libre quand ni demandeur ni client.
+  nomLibre      String?
+  coordonnees   String?
+  qualite       String?
+  representePar String?
+  ordre         Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([transactionId])
+  @@index([demandeurId])
+  @@map("transaction_parties")
+}
+
+/// Ligne de check-list matérialisée sur une transaction.
+model TransactionPiece {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  code          String
+  libelle       String
+  categorie     String
+  /// OBLIGATOIRE | CONDITIONNELLE | FACULTATIVE
+  niveau        String   @default("OBLIGATOIRE")
+  condition     String?
+  partieConcernee String @default("TOUTES")
+  sourceAttendue  String @default("CLIENT")
+  /// NON_DEMANDEE | DEMANDEE | RECUE | ILLISIBLE | EXPIREE |
+  /// VALIDEE | NON_APPLICABLE | REJETEE
+  statut        String   @default("NON_DEMANDEE")
+  documentId    String?
+  recueLe       DateTime?
+  verifiePar    String?
+  verifieLe     DateTime?
+  expireLe      DateTime?
+  commentaire   String?
+  visibleClient Boolean  @default(false)
+  ordre         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([transactionId])
+  @@map("transaction_pieces")
+}
+
+/// Formalité externe suivie dans le cadre d'une transaction (étude
+/// notariale, Conservation, Enregistrement, Cadastre, Domaines, banque,
+/// géomètre…). Quand la formalité est une démarche administrative, elle
+/// est portée par une `Demarche` liée via `demarcheId`.
+model TransactionFormalite {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// NOTAIRE | DGID_CADASTRE | DGID_DOMAINES | DGID_ENREGISTREMENT |
+  /// DGID_CONSERVATION | CSF | DGID_DIGITALE | MAIRIE | URBANISME |
+  /// GEOMETRE | ARCHITECTE | HUISSIER | BANQUE_SEQUESTRE | ETAT_CIVIL |
+  /// RCCM | JUSTICE | AUTRE
+  entite        String
+  bureau        String?     // étude notariale, bureau territorialement compétent
+  objet         String
+  /// OBLIGATOIRE | CONDITIONNELLE | RECOMMANDEE
+  niveauObligation String  @default("CONDITIONNELLE")
+  /// BROUILLON | A_PREPARER | PIECES_MANQUANTES | PRET_A_DEPOT | DEPOSE |
+  /// DEPOT_A_CONFIRMER | COMPLEMENT_DEMANDE | EN_INSTRUCTION | RELANCE |
+  /// ACCEPTE | REFUSE | EXPIRE | CLOTURE
+  statut        String      @default("BROUILLON")
+  /// Démarche administrative portant cette formalité, le cas échéant.
+  demarcheId    String?
+  demarche      Demarche?   @relation(fields: [demarcheId], references: [id])
+  canalDepot    String?
+  deposePar     String?
+  dateDepot     DateTime?
+  numeroRecepisse String?
+  quittance     String?
+  echeanceReponse DateTime?
+  prochaineRelance DateTime?
+  decisionDate  DateTime?
+  documentReponseId String?
+  notes         String?
+  creePar       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  paiements     TransactionPaiement[]
+
+  @@index([transactionId])
+  @@index([statut])
+  @@map("transaction_formalites")
+}
+
+/// Flux financier tracé sur une transaction : prix, loyers, dépôts,
+/// frais reversés et honoraires — chaque ligne indique le bénéficiaire
+/// réel. Les sommes destinées au notaire / à l'administration ne sont
+/// jamais des honoraires du cabinet.
+model TransactionPaiement {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// PRIX_DE_VENTE | DEPOT_GARANTIE | LOYER | AVANCE_LOYER | FRAIS_NOTAIRE |
+  /// DROITS_ENREGISTREMENT | DROITS_PUBLICITE_FONCIERE | FRAIS_CADASTRE |
+  /// FRAIS_DOMAINES | FRAIS_GEOMETRE | FRAIS_HUISSIER | FRAIS_URBANISME |
+  /// FRAIS_BANCAIRES_OU_SEQUESTRE | HONORAIRES_CABINET | DEBOURS_CABINET |
+  /// REMBOURSEMENT_CLIENT
+  nature        String
+  libelle       String?
+  montant       Int
+  devise        String      @default("XOF")
+  payeur        String?     // nom du payeur
+  beneficiaire  String?     // bénéficiaire réel
+  /// ESPECE | VIREMENT | CHEQUE | MOBILE_MONEY | SEQUESTRE | AUTRE
+  mode          String?
+  date          DateTime    @default(now())
+  /// Numéro de quittance / référence de virement.
+  reference     String?
+  /// Justificatif dans la GED du dossier.
+  documentId    String?
+  /// Rapprochement comptable effectué.
+  rapproche     Boolean     @default(false)
+  formaliteId   String?
+  formalite     TransactionFormalite? @relation(fields: [formaliteId], references: [id])
+  echeances     TransactionEcheance[]
+  creePar       String?
+  createdAt     DateTime    @default(now())
+
+  @@index([transactionId])
+  @@index([formaliteId])
+  @@map("transaction_paiements")
+}
+
+/// Journal opérationnel de la transaction : signatures, transmissions,
+/// dépôts, relances, paiements, décisions, changements de statut.
+model TransactionEvenement {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// SIGNATURE | TRANSMISSION_NOTAIRE | DEPOT | RELANCE | COMPLEMENT |
+  /// DECISION | PAIEMENT | REMISE | BLOCAGE | DEBLOCAGE | NOTE |
+  /// CHANGEMENT_STATUT | VALIDATION | DEMANDE_PIECE
+  type          String
+  date          DateTime @default(now())
+  description   String?
+  details       Json?
+  creePar       String?
+  createdAt     DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([date])
+  @@map("transaction_evenements")
+}
+
+/// Modèle de document à variables ({{cle|Libellé}} / [Libellé]) rattaché
+/// à un type de transaction : avant-contrats, contrats, mandats, états
+/// des lieux, quittances, PV…
+model TransactionModele {
+  id      String           @id @default(uuid())
+  code    String           @unique // TPL_*
+  titre   String
+  typeId  String?
+  type    TransactionType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  /// JURISTE | AVOCAT | ASSISTANT — validation minimale exigée.
+  validationMinimale String?
+  contenu String           @db.Text
+  ordre   Int              @default(0)
+  actif   Boolean          @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([typeId])
+  @@map("transaction_modeles")
+}
+
+/// Échéance de loyer / charges / reversement bailleur (baux et gestion locative).
+/// Générées automatiquement à la création du bail (jour d'échéance, durée).
+model TransactionEcheance {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// LOYER | CHARGES | REVERSEMENT_BAILLEUR | AUTRE
+  nature        String      @default("LOYER")
+  /// Premier jour du mois de la période (ex. nov. 2026 → 2026-11-01).
+  periode       DateTime
+  /// Jour d'échéance dans le mois (ex. le 5).
+  jourEcheance  Int?
+  montantDu     Int
+  montantPaye   Int         @default(0)
+  /// A_PERCEVOIR | PARTIEL | PAYE | EN_RETARD | ANNULE
+  statut        String      @default("A_PERCEVOIR")
+  payeLe        DateTime?
+  /// ESPECE | VIREMENT | CHEQUE | MOBILE_MONEY | AUTRE
+  modePaiement  String?
+  /// Bénéficiaire réel (nom du propriétaire pour un reversement).
+  beneficiaire  String?
+  /// Paiement constaté dans TransactionPaiement.
+  paiementId    String?
+  paiement      TransactionPaiement? @relation(fields: [paiementId], references: [id])
+  note          String?
+  creePar       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([transactionId])
+  @@index([statut])
+  @@map("transaction_echeances")
+}
+
+/// État des lieux d'un bail : une fiche par transaction, lignes à double
+/// entrée (entrée / sortie) inspirées du tableau GESTIMMO.
+model EtatLieux {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// VIDE | MEUBLEE
+  typeLocation  String      @default("VIDE")
+  /// BROUILLON | FINALISE_ENTREE | FINALISE_SORTIE | CLOTURE
+  statut        String      @default("BROUILLON")
+  dateEntree    DateTime?
+  dateSortie    DateTime?
+  nbCles        Int?
+  nbPieces      Int?
+  etage         String?
+  surface       Float?
+  dependances   String?
+  compteurEau   String?
+  compteurElectricite String?
+  /// Représentant du bailleur ou du locataire le cas échéant.
+  representant  String?
+  observations  String?
+  /// PDF versé dans la GED du dossier.
+  documentId    String?
+  creePar       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  lignes        EtatLieuxLigne[]
+
+  @@index([transactionId])
+  @@map("etats_lieux")
+}
+
+model EtatLieuxLigne {
+  id          String   @id @default(uuid())
+  etatLieuxId String
+  etatLieux   EtatLieux @relation(fields: [etatLieuxId], references: [id], onDelete: Cascade)
+  ordre       Int      @default(0)
+  /// Porte, Fenêtre, Mur, Plafond, Sol, Prise, Interrupteur, Robinet,
+  /// Lavabo, WC, Douche, Baignoire, Meuble, Climatiseur, Plaque de
+  /// cuisson, Four, Évier, Serrure, Autre.
+  objet       String
+  /// Salon 1 RDC, Salon 2 Étage, Chambre 1..5, Cuisine, Salle de bains,
+  /// WC, Entrée, Couloir, Balcon, Terrasse, Cave, Garage…
+  emplacement String?
+  /// MOBILIER | SANITAIRE | ELECTRIQUE | MENUISERIE | PEINTURE | SOL |
+  /// EQUIPEMENT | ACCESSOIRE
+  typeElement String?
+  quantiteEntree Int?  @default(1)
+  /// NEUF | BON | MOYEN | USE | DEGRADE | CASSE
+  etatEntree  String?
+  obsEntree   String?
+  quantiteSortie Int?
+  etatSortie  String?
+  obsSortie   String?
+
+  @@index([etatLieuxId])
+  @@map("etats_lieux_lignes")
+}

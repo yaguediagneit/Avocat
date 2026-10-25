@@ -1,0 +1,112 @@
+# Déploiement production — Coolify (ou `docker compose -f docker-compose.prod.yml up -d`)
+#
+# Les variables ${...} se renseignent dans l'UI Coolify (Environment Variables)
+# ou dans un fichier .env placé à côté de ce fichier — voir .env.production.example.
+#
+# VPS < 4 GB RAM : supprimez les services `redis` et `meilisearch` ainsi que
+# leurs lignes REDIS_URL / MEILISEARCH_* dans `app` — l'application a des
+# replis prévus (rate-limit en mémoire, recherche SQL).
+
+services:
+  app:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://avocat:${POSTGRES_PASSWORD}@postgres:5432/avocat
+      DATABASE_URL_TENANT_TEMPLATE: postgresql://avocat:${POSTGRES_PASSWORD}@postgres:5432/avocat
+      SESSION_PASSWORD: ${SESSION_PASSWORD}
+      SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS}
+      NEXT_PUBLIC_APP_URL: ${APP_URL}
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-}
+      TENANT_MASTER_KEY: ${TENANT_MASTER_KEY:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: avocat-documents
+      REDIS_URL: redis://redis:6379
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      meilisearch:
+        condition: service_started
+    networks: [avocat]
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: avocat
+      POSTGRES_USER: avocat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avocat -d avocat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [avocat]
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    networks: [avocat]
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do sleep 2; done;
+      mc mb --ignore-existing local/avocat-documents;
+      exit 0;
+      "
+    networks: [avocat]
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks: [avocat]
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.8
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+    volumes:
+      - meilidata:/meili_data
+    networks: [avocat]
+
+networks:
+  avocat:
+
+volumes:
+  pgdata:
+  miniodata:
+  redisdata:
+  meilidata:
