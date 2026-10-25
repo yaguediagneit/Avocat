@@ -3,8 +3,9 @@
 # ---------- deps : toutes les dépendances (build inclus) ----------
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
+# openssl : requis par Prisma pour détecter la bonne cible moteur (debian-openssl-3.0.x)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ \
+ && apt-get install -y --no-install-recommends python3 make g++ openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -31,7 +32,7 @@ RUN npx prisma generate --schema=./prisma/schema/public.prisma \
 FROM node:20-bookworm-slim AS prod-deps
 WORKDIR /app
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ \
+ && apt-get install -y --no-install-recommends python3 make g++ openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
@@ -39,6 +40,10 @@ RUN npm ci --omit=dev
 # ---------- image finale ----------
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
+# libssl3 : nécessaire aux moteurs Prisma au runtime
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000
