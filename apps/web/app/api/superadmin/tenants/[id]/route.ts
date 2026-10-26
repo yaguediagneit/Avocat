@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/prisma/generated/public";
 import { publicPrisma } from "@/lib/prisma";
 import { guardSuperAdmin, TENANT_PUBLIC_SELECT, uuidSchema } from "@/lib/superadmin";
+import { normalizeDomain } from "@/lib/tenant-url";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -10,6 +11,14 @@ const patchSchema = z.object({
   modeAbonnement: z.enum(["mensuel", "annuel"]).optional(),
   debutAbonnement: z.string().optional(),
   finAbonnement: z.string().optional(),
+  domaine: z.string().max(2048).optional().nullable(),
+  lien: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((v) => v === "" || /^https?:\/\/\S+$/i.test(v), "Le lien doit commencer par http:// ou https://")
+    .optional()
+    .nullable(),
 });
 
 function parseDate(value: string | undefined): Date | undefined {
@@ -47,6 +56,26 @@ export async function PATCH(
     if (debut) data.debutAbonnement = debut;
     if (fin) data.finAbonnement = fin;
 
+    if (parsed.data.domaine !== undefined) {
+      try {
+        data.domaine = normalizeDomain(parsed.data.domaine);
+      } catch (e) {
+        return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+      }
+    }
+
+    if (parsed.data.lien !== undefined) {
+      const current = await publicPrisma.tenant.findUnique({ where: { id: params.id }, select: { configuration: true } });
+      if (!current) return NextResponse.json({ error: "Tenant non trouvé" }, { status: 404 });
+      const config =
+        current.configuration && typeof current.configuration === "object" && !Array.isArray(current.configuration)
+          ? { ...(current.configuration as Record<string, unknown>) }
+          : {};
+      if (parsed.data.lien) config.lien = parsed.data.lien;
+      else delete config.lien;
+      data.configuration = config as Prisma.InputJsonObject;
+    }
+
     const tenant = await publicPrisma.tenant.update({
       where: { id: params.id },
       data,
@@ -55,6 +84,9 @@ export async function PATCH(
 
     return NextResponse.json(tenant);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Ce domaine est déjà utilisé par un autre cabinet." }, { status: 409 });
+    }
     console.error("Update tenant error:", error);
     return NextResponse.json({ error: "Tenant non trouvé" }, { status: 404 });
   }

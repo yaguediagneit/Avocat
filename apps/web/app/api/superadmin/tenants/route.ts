@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { publicPrisma } from "@/lib/prisma";
 import { guardSuperAdmin, sanitizeTenant, TENANT_PUBLIC_SELECT } from "@/lib/superadmin";
 import { createTenantWithAdmin } from "@/lib/tenant-manager";
+import { normalizeDomain } from "@/lib/tenant-url";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -48,6 +49,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { admin, liens, configuration, ...input } = parsed.data;
+    try {
+      input.domaine = normalizeDomain(input.domaine) ?? undefined;
+    } catch (e) {
+      return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    }
     const config: Record<string, unknown> = { ...(configuration || {}) };
     if (liens && liens.length > 0) {
       config.liens = liens;

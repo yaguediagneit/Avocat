@@ -20,6 +20,10 @@
   Tenant, Plan…). Les types `Prisma.TenantUpdateInput` / `Prisma.PlanUpdateInput` viennent du second.
 - Les réponses API superadmin ne doivent **jamais** exposer `tenant.databaseUrl` ni `tenant.schemaName` :
   utiliser `TENANT_PUBLIC_SELECT` / `sanitizeTenant` de `lib/superadmin.ts`. Valider `params.id` avec `uuidSchema`.
+- `tenant.domaine` est stocké en nom d'hôte nu (`normalizeDomain` de `lib/tenant-url.ts`) car `app/page.tsx`
+  le compare au header `Host` pour servir la vitrine du cabinet. Le « Lien » personnalisé vit dans
+  `configuration.lien` (PATCH `/api/superadmin/tenants/[id]` fusionne la configuration existante) ;
+  `getTenantUrl(slug, domaine, lien)` l'utilise en priorité.
 - `middleware.ts` protège `/superadmin` et `/api/superadmin` (session MFA + email dans `SUPERADMIN_EMAILS`),
   en plus des guards `guardSuperAdmin` / layout.
 - Rate limiting : `lib/rate-limit.ts` (`enforceAuthRateLimit` / `resetAuthRateLimit`, API async).

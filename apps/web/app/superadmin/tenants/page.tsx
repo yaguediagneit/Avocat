@@ -21,7 +21,7 @@ interface Tenant {
   debutAbonnement: string | null;
   finAbonnement: string | null;
   actif: boolean;
-  configuration: { proprietaire?: string } | null;
+  configuration: { proprietaire?: string; lien?: string } | null;
   createdAt: string;
   _count: { keys: number };
 }
@@ -43,6 +43,8 @@ export default function SuperadminTenantsPage() {
     modeAbonnement: "mensuel",
     debutAbonnement: "",
     finAbonnement: "",
+    domaine: "",
+    lien: "",
   });
 
   useEffect(() => {
@@ -113,6 +115,8 @@ export default function SuperadminTenantsPage() {
       modeAbonnement: t.modeAbonnement || "mensuel",
       debutAbonnement: t.debutAbonnement?.slice(0, 10) || "",
       finAbonnement: t.finAbonnement?.slice(0, 10) || "",
+      domaine: t.domaine || "",
+      lien: t.configuration?.lien || "",
     });
   };
 
@@ -133,11 +137,18 @@ export default function SuperadminTenantsPage() {
           modeAbonnement: editForm.modeAbonnement,
           debutAbonnement: editForm.debutAbonnement || undefined,
           finAbonnement: editForm.finAbonnement || undefined,
+          domaine: editForm.domaine.trim() || null,
+          lien: editForm.lien.trim() || null,
         }),
       });
       const data = await res.json().catch(() => ({ error: "Erreur réseau" }));
       if (!res.ok) {
-        setMessage(data.error?.message || data.error || "Erreur");
+        const fieldErrors = data.error?.fieldErrors as Record<string, string[]> | undefined;
+        setMessage(
+          (fieldErrors && Object.values(fieldErrors).flat()[0]) ||
+            data.error?.message ||
+            (typeof data.error === "string" ? data.error : "Erreur")
+        );
       } else {
         setMessage("Cabinet mis à jour.");
         setTenants((prev) => prev.map((t) => (t.id === editing.id ? { ...t, ...data } : t)));
@@ -256,7 +267,7 @@ export default function SuperadminTenantsPage() {
               plan: (t) => plans.find((p) => p.id === t.planId)?.code,
               statut: (t) => (t.actif ? "ACTIF" : "INACTIF"),
               expiration: (t) => t.finAbonnement,
-              lien: (t) => getTenantUrl(t.slug, t.domaine),
+              lien: (t) => getTenantUrl(t.slug, t.domaine, t.configuration?.lien),
             }).map((t) => (
               <tr key={t.id} className="border-b border-white/5 last:border-0">
                 <td className="py-3">
@@ -289,8 +300,8 @@ export default function SuperadminTenantsPage() {
                 </td>
                 <td className={`py-3 ${isExpired(t) ? "text-red-400" : "text-white/70"}`}>{fmtDate(t.finAbonnement)}</td>
                 <td className="py-3">
-                  <a href={getTenantUrl(t.slug, t.domaine)} target="_blank" rel="noreferrer" className="text-purple-300 hover:underline">
-                    {getTenantUrl(t.slug, t.domaine)}
+                  <a href={getTenantUrl(t.slug, t.domaine, t.configuration?.lien)} target="_blank" rel="noreferrer" className="text-purple-300 hover:underline">
+                    {getTenantUrl(t.slug, t.domaine, t.configuration?.lien)}
                   </a>
                 </td>
                 <td className="py-3">
@@ -320,6 +331,16 @@ export default function SuperadminTenantsPage() {
           <div className="w-full max-w-md rounded-xl border border-white/10 bg-cabinet-900 p-6 shadow-xl">
             <h2 className="mb-4 text-lg font-semibold">Modifier {editing.raisonSociale}</h2>
             <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs text-white/60">Domaine</label>
+                <input name="domaine" value={editForm.domaine} onChange={handleEditChange} placeholder="www.cabinet.sn" className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
+                <p className="mt-1 text-xs text-white/40">Nom d&apos;hôte servant la page vitrine du cabinet (sans https:// ni chemin).</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-white/60">Lien</label>
+                <input name="lien" type="url" value={editForm.lien} onChange={handleEditChange} placeholder={getTenantUrl(editing.slug, editForm.domaine.trim() || null)} className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
+                <p className="mt-1 text-xs text-white/40">Laisser vide pour utiliser le lien calculé depuis le domaine.</p>
+              </div>
               <div>
                 <label className="mb-1 block text-xs text-white/60">Plan</label>
                 <select name="planId" value={editForm.planId} onChange={handleEditChange} className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white">
