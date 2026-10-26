@@ -6,6 +6,7 @@ import { normalizeDomain } from "@/lib/tenant-url";
 import { z } from "zod";
 
 const patchSchema = z.object({
+  raisonSociale: z.string().trim().min(2, "Le nom du cabinet doit contenir au moins 2 caractères").max(255).optional(),
   actif: z.boolean().optional(),
   planId: z.string().uuid().optional().nullable(),
   modeAbonnement: z.enum(["mensuel", "annuel"]).optional(),
@@ -46,6 +47,7 @@ export async function PATCH(
     }
 
     const data: Prisma.TenantUpdateInput = {};
+    if (parsed.data.raisonSociale !== undefined) data.raisonSociale = parsed.data.raisonSociale;
     if (parsed.data.actif !== undefined) data.actif = parsed.data.actif;
     if (parsed.data.planId !== undefined) {
       data.plan = parsed.data.planId ? { connect: { id: parsed.data.planId } } : { disconnect: true };

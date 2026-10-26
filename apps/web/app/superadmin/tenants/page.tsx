@@ -39,6 +39,7 @@ export default function SuperadminTenantsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [editForm, setEditForm] = useState({
+    raisonSociale: "",
     planId: "",
     modeAbonnement: "mensuel",
     debutAbonnement: "",
@@ -111,6 +112,7 @@ export default function SuperadminTenantsPage() {
   const openEdit = (t: Tenant) => {
     setEditing(t);
     setEditForm({
+      raisonSociale: t.raisonSociale,
       planId: t.planId || "",
       modeAbonnement: t.modeAbonnement || "mensuel",
       debutAbonnement: t.debutAbonnement?.slice(0, 10) || "",
@@ -133,6 +135,7 @@ export default function SuperadminTenantsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          raisonSociale: editForm.raisonSociale.trim(),
           planId: editForm.planId || null,
           modeAbonnement: editForm.modeAbonnement,
           debutAbonnement: editForm.debutAbonnement || undefined,
@@ -331,6 +334,10 @@ export default function SuperadminTenantsPage() {
           <div className="w-full max-w-md rounded-xl border border-white/10 bg-cabinet-900 p-6 shadow-xl">
             <h2 className="mb-4 text-lg font-semibold">Modifier {editing.raisonSociale}</h2>
             <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs text-white/60">Nom du cabinet</label>
+                <input name="raisonSociale" value={editForm.raisonSociale} onChange={handleEditChange} required className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
+              </div>
               <div>
                 <label className="mb-1 block text-xs text-white/60">Domaine</label>
                 <input name="domaine" value={editForm.domaine} onChange={handleEditChange} placeholder="www.cabinet.sn" className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
