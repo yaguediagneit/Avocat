@@ -298,8 +298,27 @@
   via `lib/tenant-manager.ts`, init une fois via `npx tsx init.ts`).
 - `docker-entrypoint.sh` : `prisma db push` du schéma **public** (idempotent) + attente
   Postgres, puis `node server.js` (port 3000).
-- `docker-compose.prod.yml` (racine) : app + postgres + minio (+ `minio-init` qui crée le
-  bucket `avocat-documents`) + redis + meilisearch. VPS < 4 GB : supprimer redis/meilisearch
-  (replis mémoire / SQL déjà prévus dans le code).
+- `docker-compose.prod.yml` (racine) : app + avocat-postgres + avocat-minio + avocat-redis +
+  avocat-meilisearch. VPS < 4 GB : supprimer redis/meilisearch (replis mémoire / SQL déjà
+  prévus dans le code).
 - Variables : `.env.production.example`. `NEXT_PUBLIC_APP_URL` est lu côté serveur
   (runtime) — la valeur factice du build ne pose pas de problème.
+- Production actuelle : VPS RackNerd `204.44.66.91` (Ubuntu 24.04, 4 GB + 6 GB swap),
+  Coolify v4.5 (proxy **Traefik v3**), ressource `gg2dzrlxqblurzml61mlf3xb`, URL
+  `https://avocat.204.44.66.91.sslip.io`, déploiement depuis `github.com/yaguediagneit/Avocat`
+  (branche `main`, deploy key SSH). Tenant par défaut `3bd33f4d-6f75-4235-ad6e-fa08fde7475b`.
+- Pièges rencontrés :
+  - Les services sont préfixés `avocat-*` : sur le réseau partagé `coolify`, `postgres` et
+    `redis` résolvent vers `coolify-db` / `coolify-redis` (base interne de Coolify → P1000).
+  - Seul `app` rejoint le réseau externe `coolify` (accès du proxy) ; pas de `ports:` publié.
+  - MinIO n'est plus publié sur Docker Hub ni quay.io : image `bitnamilegacy/minio`,
+    bucket créé via `MINIO_DEFAULT_BUCKETS`.
+  - Les images `node:*-slim` n'ont pas `openssl` : requis par les moteurs Prisma.
+  - La route Traefik n'est pas générée par Coolify pour cette stack (aucun label `traefik.*`) :
+    elle est définie à la main dans `/data/coolify/proxy/dynamic/avocat.yaml` sur le VPS
+    (routers http→https + certResolver `letsencrypt` → `gg2dzrlxqblurzml61mlf3xb-app-1:3000`).
+    À adapter si le domaine ou le nom de la ressource changent.
+  - Postgres ne lit `POSTGRES_PASSWORD` qu'à la création du volume : pour le changer ensuite,
+    `ALTER USER avocat WITH PASSWORD '…'` dans le conteneur, puis **Redeploy**
+    (`docker restart` ne recharge pas les variables d'environnement).
+- Le plan comptable Syscohada est versionné dans `apps/web/data/` (plus de chemin Windows en dur).
