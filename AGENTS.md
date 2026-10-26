@@ -305,7 +305,8 @@
   (runtime) — la valeur factice du build ne pose pas de problème.
 - Production actuelle : VPS RackNerd `204.44.66.91` (Ubuntu 24.04, 4 GB + 6 GB swap),
   Coolify v4.5 (proxy **Traefik v3**), ressource `gg2dzrlxqblurzml61mlf3xb`, URL
-  `https://avocat.204.44.66.91.sslip.io`, déploiement depuis `github.com/yaguediagneit/Avocat`
+  `https://cabinetajr.net` (+ `www.` et l'ancienne `avocat.204.44.66.91.sslip.io` ; DNS chez
+  Cloudflare en « DNS only »), déploiement depuis `github.com/yaguediagneit/Avocat`
   (branche `main`, deploy key SSH). Tenant par défaut `3bd33f4d-6f75-4235-ad6e-fa08fde7475b`.
 - Pièges rencontrés :
   - Les services sont préfixés `avocat-*` : sur le réseau partagé `coolify`, `postgres` et
@@ -316,8 +317,9 @@
   - Les images `node:*-slim` n'ont pas `openssl` : requis par les moteurs Prisma.
   - La route Traefik n'est pas générée par Coolify pour cette stack (aucun label `traefik.*`) :
     elle est définie à la main dans `/data/coolify/proxy/dynamic/avocat.yaml` sur le VPS
-    (routers http→https + certResolver `letsencrypt` → `gg2dzrlxqblurzml61mlf3xb-app-1:3000`).
-    À adapter si le domaine ou le nom de la ressource changent.
+    (router http→https + un router https par nom d'hôte, certResolver `letsencrypt` →
+    `gg2dzrlxqblurzml61mlf3xb-app-1:3000`). À adapter si le domaine ou le nom de la ressource
+    changent ; après modification, `docker restart coolify-proxy` force la demande de certificat.
   - Postgres ne lit `POSTGRES_PASSWORD` qu'à la création du volume : pour le changer ensuite,
     `ALTER USER avocat WITH PASSWORD '…'` dans le conteneur, puis **Redeploy**
     (`docker restart` ne recharge pas les variables d'environnement).
