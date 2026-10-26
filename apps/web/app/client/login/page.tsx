@@ -47,10 +47,7 @@ export default function ClientLoginPage() {
 
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link href="/" className="text-2xl font-bold tracking-tight">
-            <span className="text-gold-300">cabinet-avocat</span>.sn
-          </Link>
-          <h1 className="mt-6 font-display text-3xl font-medium tracking-tight md:text-4xl">
+          <h1 className="font-display text-3xl font-medium tracking-tight md:text-4xl">
             Espace client
           </h1>
           <p className="mt-2 text-sm text-cabinet-200/70">
@@ -119,7 +116,7 @@ export default function ClientLoginPage() {
         </form>
 
         <p className="mt-8 text-center text-xs text-cabinet-300/60">
-          &copy; {new Date().getFullYear()} cabinet-avocat.sn. Tous droits réservés.
+          &copy; {new Date().getFullYear()} Tous droits réservés.
         </p>
         <p className="mt-2 pointer-events-none select-none text-center text-[10px] font-medium tracking-[0.2em] text-cabinet-300/25">
           Concepteur : yaguediagne.it@gmail.com | +221 77 514 74 41 | +221 77 712 61 39
