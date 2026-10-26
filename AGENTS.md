@@ -324,6 +324,16 @@
     `ALTER USER avocat WITH PASSWORD '…'` dans le conteneur, puis **Redeploy**
     (`docker restart` ne recharge pas les variables d'environnement).
 - Le plan comptable Syscohada est versionné dans `apps/web/data/` (plus de chemin Windows en dur).
+- Sauvegardes : `deploy/backup/avocat-backup.sh`, installé sur le VPS dans `/root/backup/`,
+  cron `/etc/cron.d/avocat-backup` à 03:00, log `/var/log/avocat-backup.log`. `pg_dump -Fc` de la
+  base `avocat` (schéma public + tous les tenants) + tar du volume `<projet>_miniodata` + route
+  Traefik, envoyés via le remote rclone `r2crypt:` (crypt sur R2 `cabinetajr-backups/avocat`) :
+  `daily/<date>` gardé 30 j, `monthly/<AAAA-MM>` (le 1er du mois) gardé 1 an, 3 j en local.
+  Le chiffrement est obligatoire : la clé privée des tenants est stockée en clair dans
+  `tenant_keys` (TODO de `lib/tenant-keys.ts`), donc dump + MinIO = documents déchiffrables.
+  Les mots de passe crypt sont conservés hors du VPS ; sans eux, les sauvegardes sont illisibles.
+  Restauration : `rclone copy r2crypt:daily/<date> /root/restore`, puis `pg_restore --clean
+  --if-exists` dans le conteneur postgres et décompression du tar dans le volume MinIO.
 - `createTenant` ne stocke plus `tenant.databaseUrl` (null → URL dérivée de `DATABASE_URL` +
   `schemaName` à l'exécution). Une URL stockée fige l'hôte et le mot de passe : à réserver aux
   cabinets sur base dédiée.
