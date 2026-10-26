@@ -42,8 +42,7 @@ export async function createTenant(input: CreateTenantInput) {
   await publicPrisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
   // Exécution des migrations du modèle tenant
-  const databaseUrl = buildTenantDatabaseUrl(schemaName);
-  runPrismaMigrate(schemaName, databaseUrl);
+  runPrismaMigrate(schemaName, buildTenantDatabaseUrl(schemaName));
 
   // Enregistrement du tenant
   const tenant = await publicPrisma.tenant.create({
@@ -59,7 +58,6 @@ export async function createTenant(input: CreateTenantInput) {
       finAbonnement: input.finAbonnement,
       configuration: input.configuration as Prisma.InputJsonValue | undefined,
       schemaName,
-      databaseUrl,
       actif: true,
     },
   });
