@@ -146,14 +146,8 @@ export function CabinetNavHeader({
             )}
           </div>
 
-          {/* Boutons Espace client & Intranet */}
+          {/* Bouton Intranet */}
           <div className="hidden items-center gap-2 sm:flex">
-            <Link
-              href="/client/login"
-              className="inline-flex items-center rounded-lg border border-gold-400/40 bg-gold-500/10 px-3.5 py-1.5 text-xs font-semibold text-gold-300 shadow-sm backdrop-blur-sm transition hover:border-gold-400 hover:bg-gold-500 hover:text-cabinet-950 md:text-sm"
-            >
-              Espace client
-            </Link>
             <Link
               href="/cabinet"
               className="btn-primary px-3.5 py-1.5 text-xs md:text-sm"
@@ -237,14 +231,7 @@ export function CabinetNavHeader({
           )}
 
           {/* Boutons d'accès mobile */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <Link
-              href="/client/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="inline-flex items-center justify-center rounded-xl border border-gold-400/40 bg-gold-500/15 py-2.5 text-center text-xs font-semibold text-gold-300 transition hover:bg-gold-500 hover:text-cabinet-950"
-            >
-              Espace client
-            </Link>
+          <div className="grid gap-3 pt-2">
             <Link
               href="/cabinet"
               onClick={() => setMobileMenuOpen(false)}
