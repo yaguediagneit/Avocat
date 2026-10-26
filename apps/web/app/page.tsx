@@ -110,11 +110,16 @@ const resolveTenant = cache(async (host: string): Promise<CabinetData | null> =>
     configuration: unknown;
   } | null = null;
 
+  const tenantSelect = { id: true, raisonSociale: true, adresse: true, identifiantFiscal: true, logoUrl: true, configuration: true } as const;
+
   if (host) {
-    tenant = await publicPrisma.tenant.findUnique({
-      where: { domaine: host },
-      select: { id: true, raisonSociale: true, adresse: true, identifiantFiscal: true, logoUrl: true, configuration: true },
-    });
+    tenant = await publicPrisma.tenant.findUnique({ where: { domaine: host }, select: tenantSelect });
+    // Tolère l'autre forme du même domaine : le tenant stocke « cabinet.sn »
+    // et le visiteur tape « www.cabinet.sn », ou l'inverse.
+    if (!tenant) {
+      const altHost = host.startsWith("www.") ? host.slice(4) : `www.${host}`;
+      tenant = await publicPrisma.tenant.findUnique({ where: { domaine: altHost }, select: tenantSelect });
+    }
   }
 
   if (!tenant) {
