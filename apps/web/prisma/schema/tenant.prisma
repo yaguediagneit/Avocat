@@ -84,6 +84,9 @@ model Dossier {
   /// Natures de mission du dossier : tableau de codes (paramètre `nature_mission`).
   /// Les anciennes lignes peuvent contenir une simple chaîne — voir `naturesMissionOf`.
   natureMission         Json
+  /// Matière juridique : "civil" | "commercial" | "social" | "penal" |
+  /// "administratif" | "fiscal" — pilote les délais de recours (voir lib/recours.ts).
+  matiere               String?
   clientId              String
   client                Client   @relation(fields: [clientId], references: [id])
   partiesAdverses       Json?
@@ -117,6 +120,8 @@ model Dossier {
   checklistItems        ChecklistCloture[]
   demarches             Demarche[]
   transactions          Transaction[]
+  procedures            Procedure[]
+  recours               Recours[]
 
   @@map("dossiers")
 }
@@ -2743,4 +2748,142 @@ model EtatLieuxLigne {
 
   @@index([etatLieuxId])
   @@map("etats_lieux_lignes")
+}
+
+// -------------------------------------------------------------------
+// Parcours procédural : instances, décisions et voies de recours
+// (appel devant la Cour d'appel, pourvoi devant la Cour suprême).
+// -------------------------------------------------------------------
+
+/// Niveau de juridiction saisi pour un dossier : première instance,
+/// appel, pourvoi, opposition, révision ou exécution. Chaque procédure
+/// porte sa juridiction, ses audiences (via les événements du dossier),
+/// sa décision et le point de départ des délais de recours.
+model Procedure {
+  id                String   @id @default(uuid())
+  dossierId         String
+  dossier           Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  /// "premiere_instance" | "appel" | "pourvoi" | "opposition" | "revision" | "execution"
+  niveau            String
+  /// Ex. "Tribunal de grande instance de Dakar", "Cour d'appel de Dakar", "Cour suprême"
+  juridiction       String
+  chambre           String?
+  greffe            String?
+  /// Numéro de rôle / RG / enregistrement au greffe.
+  referenceRg       String?
+  dateSaisine       DateTime?
+  datePrononce      DateTime?
+  dateSignification DateTime?
+  /// "jugement" | "ordonnance" | "arret"
+  typeDecision      String?
+  /// Dispositif / résumé de la décision rendue.
+  decision          String?
+  /// "favorable" | "defavorable" | "mixte" | "neutre" | "en_attente"
+  sensDecision      String   @default("en_attente")
+  /// "EN_COURS" | "DELIBERE" | "DECISION_RENDUE" | "DECISION_SIGNIFIEE" |
+  /// "TRANSMIS_RECOURS" | "DEFINITIF" | "ARCHIVE"
+  statut            String   @default("EN_COURS")
+  /// Visible dans l'espace client (sans les notes internes).
+  publieClient      Boolean  @default(true)
+  notes             String?
+  creePar           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  recoursExerces    Recours[]            @relation("RecoursOrigine")
+  recoursSource     Recours[]            @relation("RecoursCible")
+  evenements        ProcedureEvenement[]
+
+  @@index([dossierId])
+  @@index([niveau])
+  @@index([statut])
+  @@map("procedures")
+}
+
+/// Journal des événements d'une procédure (saisine, audiences reportées
+/// au calendrier, prononcé, signification, notes).
+model ProcedureEvenement {
+  id          String    @id @default(uuid())
+  procedureId String
+  procedure   Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  /// "SAISINE" | "DECISION" | "SIGNIFICATION" | "CHANGEMENT_STATUT" | "NOTE"
+  type        String
+  description String
+  date        DateTime  @default(now())
+  details     Json?
+  creePar     String?
+  createdAt   DateTime  @default(now())
+
+  @@index([procedureId])
+  @@index([date])
+  @@map("procedure_evenements")
+}
+
+/// Voie de recours contre la décision d'une procédure : appel, pourvoi
+/// en cassation, opposition, révision. Porte le délai calculé, les actes
+/// de forme (déclaration, signification, consignation, mémoire) et le
+/// workflow d'états (voir `RECOURS_TRANSITIONS` dans lib/recours.ts).
+model Recours {
+  id                 String     @id @default(uuid())
+  dossierId          String
+  dossier            Dossier    @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  procedureOrigineId String
+  procedureOrigine   Procedure  @relation("RecoursOrigine", fields: [procedureOrigineId], references: [id])
+  /// Procédure créée devant la juridiction du recours (remplie à l'enregistrement).
+  procedureCibleId   String?
+  procedureCible     Procedure? @relation("RecoursCible", fields: [procedureCibleId], references: [id])
+  /// "appel" | "pourvoi" | "opposition" | "revision" | "autre"
+  typeRecours        String
+  /// "client" | "partie_adverse" | "ministere_public"
+  origine            String     @default("client")
+  juridictionCible   String?
+  /// Point de départ du délai : "prononce" | "signification".
+  pointDepart        String?
+  /// Durée du délai en jours (calculée selon la matière, surchargeable).
+  delaiJours         Int?
+  /// Date servant de base au calcul (prononcé ou signification).
+  dateReference      DateTime?
+  /// Date limite d'exercice du recours.
+  dateLimite         DateTime?
+  dateDeclaration    DateTime?
+  dateSignification  DateTime?
+  dateConsignation   DateTime?
+  dateMemoire        DateTime?
+  /// Machine à états : A_ANALYSER → … → JUGE → EXECUTION_RENOI | ARCHIVE
+  statut             String     @default("A_ANALYSER")
+  /// Issue : "confirmatif" | "infirmatif" | "reformat_partiel" |
+  /// "cassation_sans_renvoi" | "cassation_avec_renvoi" | "cassation_partielle" |
+  /// "rejet" | "irrecevable" | "caduc" | "non_lieu" | "desistement"
+  issue              String?
+  avocatId           String?
+  notes              String?
+  creePar            String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  evenements         RecoursEvenement[]
+
+  @@index([dossierId])
+  @@index([procedureOrigineId])
+  @@index([statut])
+  @@index([dateLimite])
+  @@map("recours")
+}
+
+/// Journal de traçabilité des transitions d'un recours
+/// (utilisateur, date, ancien état, nouvel état, motif).
+model RecoursEvenement {
+  id          String   @id @default(uuid())
+  recoursId   String
+  recours     Recours  @relation(fields: [recoursId], references: [id], onDelete: Cascade)
+  /// "TRANSITION" | "NOTE" | "ECHEANCE"
+  type        String   @default("TRANSITION")
+  ancienStatut String?
+  nouveauStatut String?
+  description String
+  details     Json?
+  creePar     String?
+  createdAt   DateTime @default(now())
+
+  @@index([recoursId])
+  @@index([createdAt])
+  @@map("recours_evenements")
 }

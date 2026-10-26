@@ -154,6 +154,37 @@
   même transaction : `audience` → type `audience`, `reunion` → type `rdv` ; `attendees` (chaîne
   « A, B ») devient `participants` (`[{ nom }]`). Un statut `annule` ne génère pas d'événement.
 
+## Parcours procédural & recours (appel / pourvoi)
+- Le dossier est modélisé comme un parcours : `Procedure` (niveaux `premiere_instance`,
+  `appel`, `pourvoi`, `opposition`, `revision`, `execution` — juridiction, chambre,
+  greffe, RG, dates saisine/prononcé/signification, type+sens+dispositif de la
+  décision) reliées par des `Recours` (`appel`, `pourvoi`, `opposition`, `revision`,
+  `autre` — origine client/adverse/MP, délai, dates de déclaration/signification/
+  consignation/mémoire, issue). Journaux : `ProcedureEvenement`, `RecoursEvenement`.
+- `dossier.matiere` (civil/commercial/social/penal/administratif/fiscal) pilote les
+  délais : `lib/recours.ts` (`delaiRecoursJours` — appel 15 j par défaut, opposition
+  30 j, pourvoi pénal 6 j / social 15 j / civil+commercial 60 j ; `pointDepartAuto` —
+  pourvoi pénal depuis le prononcé, sinon signification puis prononcé). Tout est
+  surchargeable par recours (`delaiJours`, `pointDepart`, `dateReference`, `dateLimite`).
+- Machine à états : `RECOURS_TRANSITIONS` + `assertRecoursTransition` (actes de forme
+  exigés : date de déclaration pour DEPOSE/DECLARE, signification, consignation,
+  mémoire, issue pour JUGE) ; `PROCEDURE_TRANSITIONS` pour les instances.
+- API : `POST/GET /api/dossiers/[id]/procedures`, `PATCH/DELETE /api/procedures/[id]`
+  (DELETE admin, refusée si recours liés ; les dates prononcé/signification
+  resynchronisent les délais des recours encore actifs), `POST /api/procedures/[id]/recours`,
+  `PATCH /api/recours/[id]`, `POST /api/recours/[id]/transition` (à `ENREGISTRE`, crée
+  la procédure cible Cour d'appel/Cour suprême + passe l'origine à `TRANSMIS_RECOURS` ;
+  au terminal, l'origine passe à `DEFINITIF` si plus aucun recours actif).
+- Alertes : `lib/recours-alertes.ts` (`syncRecoursNotifications`) — notifications
+  J-15/J-7/J-3/J-1/J0 + « délai dépassé » urgent à l'avocat du recours (ou responsable
+  du dossier), tant que le recours est dans `RECOURS_STATUTS_DELAI_ACTIF`. Appelée
+  par `POST /api/notifications` et après chaque transition.
+- UI : onglet « Procédures & recours » de la fiche dossier (`dossier-procedures.tsx`,
+  chronologie verticale, matière éditable inline, formulaires décision/recours/
+  transition) ; bloc « Parcours judiciaire » en lecture seule côté espace client
+  (uniquement `procedure.publieClient`, sans les notes) ; carte « Délais de recours
+  urgents » du tableau de bord cabinet.
+
 ## Démarches administratives (foncier / urbanisme / fiscalité)
 - Module dédié (`/cabinet/dossiers/demarches`, onglet « Démarches adm. » de la section
   Dossiers — sous-navigation `demarches/layout.tsx` : Démarches / Demandeurs / Parcelles /

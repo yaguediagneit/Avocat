@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guard } from "@/lib/api-guard";
+import { syncRecoursNotifications } from "@/lib/recours-alertes";
 
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -135,9 +136,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Alertes sur les délais de recours (appel, pourvoi…) en cours.
+    const alertesRecours = await syncRecoursNotifications(ctx.prisma);
+
     return NextResponse.json({
-      generees: notificationsCreees.length,
+      generees: notificationsCreees.length + alertesRecours,
       notifications: notificationsCreees,
+      alertesRecours,
     });
   } catch (error) {
     console.error("Generate notifications error", error);

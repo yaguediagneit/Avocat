@@ -9,6 +9,12 @@ import Link from "next/link";
 import { SpotlightCard } from "@/components/landing/spotlight-card";
 import { AnimatedCounter } from "@/components/landing/animated-counter";
 import { PaginatedList } from "@/components/pagination";
+import {
+  TYPE_RECOURS_LABELS,
+  RECOURS_STATUT_LABELS,
+  RECOURS_STATUT_BADGES,
+  RECOURS_STATUTS_DELAI_ACTIF,
+} from "@/lib/recours";
 
 const TYPE_LABELS: Record<string, string> = {
   contentieux_contractuel: "Contentieux contractuel",
@@ -170,6 +176,7 @@ export default async function DashboardPage() {
     pendingInsurance,
     myLeaves,
     pendingInsuranceAdvances,
+    recoursUrgents,
   ] = await Promise.all([
     prisma.dossier.count({ where: dossierFilter }),
     prisma.dossier.count({
@@ -286,6 +293,20 @@ export default async function DashboardPage() {
           },
         })
       : [],
+    // Recours dont le délai court encore et expire sous 15 jours (ou dépassé).
+    prisma.recours.findMany({
+      where: {
+        statut: { in: [...RECOURS_STATUTS_DELAI_ACTIF] },
+        dateLimite: { not: null, lte: new Date(maintenant.getTime() + 15 * 86400000) },
+        dossier: dossierFilter,
+      },
+      take: 8,
+      orderBy: { dateLimite: "asc" },
+      include: {
+        dossier: { select: { id: true, referenceInterne: true } },
+        procedureOrigine: { select: { juridiction: true } },
+      },
+    }),
   ]);
 
   /// Fusionner tâches et événements pour la section "Prochains événements",
@@ -447,6 +468,64 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {recoursUrgents.length > 0 && (
+        <div className="card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-cabinet-900">Délais de recours urgents</h2>
+            <span className="text-sm text-red-600">
+              {recoursUrgents.filter((r) => r.dateLimite && r.dateLimite < maintenant).length} dépassé(s)
+            </span>
+          </div>
+          <div className="space-y-3">
+            <PaginatedList>
+            {recoursUrgents.map((r) => {
+              const restants = r.dateLimite
+                ? Math.ceil((r.dateLimite.getTime() - maintenant.getTime()) / 86400000)
+                : null;
+              return (
+                <Link
+                  key={r.id}
+                  href={`/cabinet/dossiers/${r.dossier.id}`}
+                  className="flex items-center justify-between rounded-xl border border-cabinet-100 bg-cabinet-50/50 px-4 py-3 text-sm transition hover:border-cabinet-300"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium text-cabinet-900">
+                      {TYPE_RECOURS_LABELS[r.typeRecours] || r.typeRecours}
+                    </span>
+                    <span className="text-xs text-cabinet-500">
+                      {" "}· {r.dossier.referenceInterne} · {r.procedureOrigine.juridiction}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECOURS_STATUT_BADGES[r.statut] || "bg-gray-100 text-gray-700"}`}>
+                      {RECOURS_STATUT_LABELS[r.statut] || r.statut}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        restants !== null && restants < 0
+                          ? "bg-red-100 text-red-800"
+                          : restants !== null && restants <= 3
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {restants === null
+                        ? "—"
+                        : restants < 0
+                          ? `Dépassé de ${Math.abs(restants)} j`
+                          : restants === 0
+                            ? "Aujourd'hui"
+                            : `J-${restants}`}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+            </PaginatedList>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">

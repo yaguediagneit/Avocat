@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DEMARCHE_STATUT_BADGES, DEMARCHE_STATUT_LABELS } from "@/lib/demarches";
 import { TRANSACTION_STATUT_BADGES, TRANSACTION_STATUT_LABELS } from "@/lib/transactions";
 import { DossierTaches } from "./dossier-taches";
+import { DossierProcedures } from "./dossier-procedures";
 import { ItemDiscussion } from "@/components/item-discussion";
 import { RowActions } from "@/components/row-actions";
 import { PaginatedRows, PaginatedUl } from "@/components/pagination";
@@ -13,6 +14,7 @@ import { useTableSort } from "@/components/table-sort";
 interface DossierTabsProps {
   dossier: {
     id: string;
+    matiere?: string | null;
     avocatResponsableId: string;
     huissierResponsableId?: string | null;
     documents: { id: string; nom: string; categorie: string; publieClient: boolean; partageExterne: boolean; actif: boolean; creePar: string; createdAt: Date; metadata?: unknown }[];
@@ -57,7 +59,44 @@ interface DossierTabsProps {
         demandeur: { nom: string; prenoms: string | null; raisonSociale: string | null; typePersonne: string } | null;
       }[];
     }[];
+    procedures?: {
+      id: string;
+      niveau: string;
+      juridiction: string;
+      chambre: string | null;
+      greffe: string | null;
+      referenceRg: string | null;
+      dateSaisine: Date | null;
+      datePrononce: Date | null;
+      dateSignification: Date | null;
+      typeDecision: string | null;
+      decision: string | null;
+      sensDecision: string;
+      statut: string;
+      publieClient: boolean;
+      notes: string | null;
+      recoursExerces: {
+        id: string;
+        typeRecours: string;
+        origine: string;
+        juridictionCible: string | null;
+        pointDepart: string | null;
+        delaiJours: number | null;
+        dateReference: Date | null;
+        dateLimite: Date | null;
+        dateDeclaration: Date | null;
+        dateSignification: Date | null;
+        dateConsignation: Date | null;
+        dateMemoire: Date | null;
+        statut: string;
+        issue: string | null;
+        avocatId: string | null;
+        notes: string | null;
+      }[];
+    }[];
   };
+  /// Utilisateurs actifs (sélecteur avocat en charge d'un recours).
+  usersLite?: { id: string; nom: string }[];
   userMap?: Record<string, string>;
   currentUserId?: string;
   estAdmin?: boolean;
@@ -126,6 +165,7 @@ const MISSION_STATUT_BADGES: Record<string, string> = {
 
 const TAB_LABELS: Record<string, string> = {
   documents: "Documents",
+  procedures: "Procédures & recours",
   taches: "Tâches",
   missions: "Missions",
   demarches: "Démarches",
@@ -135,6 +175,7 @@ const TAB_LABELS: Record<string, string> = {
 
 const TAB_COLORS: Record<string, { active: string; inactive: string }> = {
   documents: { active: "border-b-2 border-blue-600 text-blue-600", inactive: "text-gray-500 hover:text-blue-600" },
+  procedures: { active: "border-b-2 border-rose-600 text-rose-600", inactive: "text-gray-500 hover:text-rose-600" },
   taches: { active: "border-b-2 border-amber-600 text-amber-600", inactive: "text-gray-500 hover:text-amber-600" },
   missions: { active: "border-b-2 border-emerald-600 text-emerald-600", inactive: "text-gray-500 hover:text-emerald-600" },
   demarches: { active: "border-b-2 border-indigo-600 text-indigo-600", inactive: "text-gray-500 hover:text-indigo-600" },
@@ -230,11 +271,15 @@ function documentCouvre(doc: DossierTabsProps["dossier"]["documents"][number], c
   return meta?.typeDocument === code;
 }
 
-export function DossierTabs({ dossier, userMap = {}, currentUserId = "", estAdmin = false, tacheTemplateIds = {}, tacheTemplateWordByTitre = {}, typesDocumentsAttendus = [], canEditDocuments = false }: DossierTabsProps) {
+export function DossierTabs({ dossier, userMap = {}, currentUserId = "", estAdmin = false, tacheTemplateIds = {}, tacheTemplateWordByTitre = {}, typesDocumentsAttendus = [], canEditDocuments = false, usersLite = [] }: DossierTabsProps) {
   const { th: sortTh, sorted: sortRows } = useTableSort();
   const canCreate = estAdmin || currentUserId === dossier.avocatResponsableId;
+  const canEditProcedures =
+    estAdmin ||
+    currentUserId === dossier.avocatResponsableId ||
+    currentUserId === dossier.huissierResponsableId;
 
-  const [active, setActive] = useState<"documents" | "taches" | "missions" | "demarches" | "transactions" | "evenements">("documents");
+  const [active, setActive] = useState<"documents" | "procedures" | "taches" | "missions" | "demarches" | "transactions" | "evenements">("documents");
   const [discussion, setDiscussion] = useState<{ id: string; titre: string; kind: "tache" | "evenement" } | null>(null);
   const demarches = dossier.demarches || [];
   const transactions = dossier.transactions || [];
@@ -242,7 +287,7 @@ export function DossierTabs({ dossier, userMap = {}, currentUserId = "", estAdmi
   return (
     <div className="card p-0">
       <div className="flex overflow-x-auto border-b border-gray-200">
-        {(["documents", "taches", "missions", "demarches", "transactions", "evenements"] as const).map((tab) => (
+        {(["documents", "procedures", "taches", "missions", "demarches", "transactions", "evenements"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActive(tab)}
@@ -391,6 +436,16 @@ export function DossierTabs({ dossier, userMap = {}, currentUserId = "", estAdmi
               </div>
             )}
           </div>
+        )}
+
+        {active === "procedures" && (
+          <DossierProcedures
+            dossierId={dossier.id}
+            matiere={dossier.matiere || null}
+            procedures={(dossier.procedures || []) as any}
+            users={usersLite}
+            canEdit={canEditProcedures}
+          />
         )}
 
         {active === "taches" && (

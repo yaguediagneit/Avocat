@@ -35,6 +35,11 @@ const dossierUpdateSchema = z
     niveauConfidentialite: z.coerce.number().int().min(0).max(3),
     dateEcheance: optionalDate(),
     statut: z.string(),
+    /// Matière juridique : pilote les délais de recours (lib/recours.ts).
+    matiere: z
+      .enum(["civil", "commercial", "social", "penal", "administratif", "fiscal"])
+      .nullable()
+      .optional(),
     actif: z.boolean().optional(),
     /// Associés / Intervenants (sync en édition).
     collaborateurs: z

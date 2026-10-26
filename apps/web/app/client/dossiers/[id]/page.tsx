@@ -5,6 +5,18 @@ import { naturesMissionOf } from "@/lib/nature-mission";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ClientDocumentUpload } from "@/app/client/documents/client-document-upload";
+import {
+  NIVEAU_LABELS,
+  PROCEDURE_STATUT_LABELS,
+  TYPE_DECISION_LABELS,
+  SENS_DECISION_LABELS,
+  TYPE_RECOURS_LABELS,
+  ORIGINE_LABELS,
+  RECOURS_STATUT_LABELS,
+  RECOURS_STATUT_BADGES,
+  PROCEDURE_STATUT_BADGES,
+  ISSUE_LABELS,
+} from "@/lib/recours";
 
 const TYPE_LABELS: Record<string, string> = {
   contentieux_contractuel: "Contentieux contractuel",
@@ -77,6 +89,35 @@ export default async function ClientDossierDetailPage({
         orderBy: { dateEmission: "desc" },
         take: 50,
         include: { paiements: true },
+      },
+      procedures: {
+        where: { publieClient: true },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          niveau: true,
+          juridiction: true,
+          chambre: true,
+          dateSaisine: true,
+          datePrononce: true,
+          typeDecision: true,
+          decision: true,
+          sensDecision: true,
+          statut: true,
+          recoursExerces: {
+            select: {
+              id: true,
+              typeRecours: true,
+              origine: true,
+              juridictionCible: true,
+              statut: true,
+              dateLimite: true,
+              dateDeclaration: true,
+              issue: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
       },
     },
   });
@@ -169,6 +210,58 @@ export default async function ClientDossierDetailPage({
           )}
         </div>
       </div>
+
+      {dossier.procedures.length > 0 && (
+        <div className="card space-y-4">
+          <h2 className="font-semibold">Parcours judiciaire</h2>
+          <ol className="relative space-y-4 border-l-2 border-cabinet-200 pl-5">
+            {dossier.procedures.map((p, idx) => (
+              <li key={p.id} className="relative">
+                <span className="absolute -left-[27px] top-1 h-4 w-4 rounded-full border-2 border-cabinet-500 bg-white" />
+                <div className="space-y-1 rounded-xl border border-cabinet-100 bg-cabinet-50/50 px-4 py-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      {idx + 1}. {NIVEAU_LABELS[p.niveau] || p.niveau} — {p.juridiction}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROCEDURE_STATUT_BADGES[p.statut] || "bg-gray-100 text-gray-700"}`}>
+                      {PROCEDURE_STATUT_LABELS[p.statut] || p.statut}
+                    </span>
+                  </div>
+                  {p.chambre && <p className="text-xs text-gray-500">{p.chambre}</p>}
+                  <p className="text-xs text-gray-500">
+                    {p.dateSaisine && `Saisie le ${new Date(p.dateSaisine).toLocaleDateString("fr-FR")}`}
+                    {p.datePrononce && ` · ${TYPE_DECISION_LABELS[p.typeDecision || ""] || "Décision"} du ${new Date(p.datePrononce).toLocaleDateString("fr-FR")} (${SENS_DECISION_LABELS[p.sensDecision] || p.sensDecision})`}
+                  </p>
+                  {p.recoursExerces.map((r) => {
+                    const enCours = !["JUGE", "IRRECEVABLE", "ARCHIVE"].includes(r.statut);
+                    const restants = r.dateLimite
+                      ? Math.ceil((new Date(r.dateLimite).getTime() - Date.now()) / 86400000)
+                      : null;
+                    return (
+                      <div key={r.id} className="mt-1 flex flex-wrap items-center gap-2 border-t border-cabinet-100 pt-1 text-xs">
+                        <span className="font-medium">
+                          {TYPE_RECOURS_LABELS[r.typeRecours] || r.typeRecours}
+                          {r.juridictionCible ? ` — ${r.juridictionCible}` : ""}
+                        </span>
+                        <span className="text-gray-500">({ORIGINE_LABELS[r.origine] || r.origine})</span>
+                        <span className={`rounded-full px-2 py-0.5 font-medium ${RECOURS_STATUT_BADGES[r.statut] || "bg-gray-100 text-gray-700"}`}>
+                          {RECOURS_STATUT_LABELS[r.statut] || r.statut}
+                        </span>
+                        {r.issue && <span className="text-gray-600">· {ISSUE_LABELS[r.issue] || r.issue}</span>}
+                        {enCours && r.dateLimite && restants !== null && !r.dateDeclaration && (
+                          <span className={restants <= 3 ? "font-semibold text-red-700" : "text-amber-700"}>
+                            {restants < 0 ? "délai dépassé" : restants === 0 ? "dernier jour" : `${restants} jour(s) restant(s)`}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       <ClientDocumentUpload
         dossiers={[{ id: dossier.id, referenceInterne: dossier.referenceInterne }]}

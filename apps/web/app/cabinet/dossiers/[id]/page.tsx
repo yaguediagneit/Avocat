@@ -54,6 +54,7 @@ export default async function DossierDetailPage({
       natureMission: true,
       dateOuverture: true,
       statut: true,
+      matiere: true,
       clientId: true,
       createurId: true,
       avocatResponsableId: true,
@@ -135,6 +136,12 @@ export default async function DossierDetailPage({
           dossierConflit: { select: { id: true, referenceInterne: true } },
         },
         orderBy: { createdAt: "desc" },
+      },
+      procedures: {
+        orderBy: { createdAt: "asc" as const },
+        include: {
+          recoursExerces: { orderBy: { createdAt: "asc" as const } },
+        },
       },
     },
   });
@@ -246,6 +253,9 @@ export default async function DossierDetailPage({
       <DossierTabs
         dossier={dossier}
         userMap={Object.fromEntries(userMap)}
+        usersLite={users
+          .filter((u) => !u.role?.estClient)
+          .map((u) => ({ id: u.id, nom: `${u.prenom} ${u.nom}` }))}
         currentUserId={auth.userId}
         estAdmin={auth.estAdmin}
         tacheTemplateIds={tacheTemplateIds}
