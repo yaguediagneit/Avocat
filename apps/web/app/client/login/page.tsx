@@ -119,7 +119,7 @@ export default function ClientLoginPage() {
           &copy; {new Date().getFullYear()} Tous droits réservés.
         </p>
         <p className="mt-2 pointer-events-none select-none text-center text-[10px] font-medium tracking-[0.2em] text-cabinet-300/25">
-          Concepteur : yaguediagne.it@gmail.com | +221 77 514 74 41 | +221 77 712 61 39
+          yaguediagne.it@gmail.com | +221 77 514 74 41 | +221 77 712 61 39
         </p>
       </div>
     </main>

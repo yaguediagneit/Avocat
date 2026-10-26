@@ -124,20 +124,13 @@ export default function LoginPage() {
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>
-
-          <div className="mt-6 text-center text-sm text-cabinet-200/70">
-            Vous êtes client ?{" "}
-            <Link href="/client/login" className="text-gold-300 hover:underline">
-              Accéder à l'espace client
-            </Link>
-          </div>
         </form>
 
         <p className="mt-8 text-center text-xs text-cabinet-300/60">
           &copy; {new Date().getFullYear()} Tous droits réservés.
         </p>
         <p className="mt-2 pointer-events-none select-none text-center text-[10px] font-medium tracking-[0.2em] text-cabinet-300/25">
-          Concepteur : yaguediagne.it@gmail.com | +221 77 514 74 41 | +221 77 712 61 39
+          yaguediagne.it@gmail.com | +221 77 514 74 41 | +221 77 712 61 39
         </p>
       </div>
     </main>
