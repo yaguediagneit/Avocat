@@ -322,3 +322,6 @@
     `ALTER USER avocat WITH PASSWORD '…'` dans le conteneur, puis **Redeploy**
     (`docker restart` ne recharge pas les variables d'environnement).
 - Le plan comptable Syscohada est versionné dans `apps/web/data/` (plus de chemin Windows en dur).
+- `createTenant` ne stocke plus `tenant.databaseUrl` (null → URL dérivée de `DATABASE_URL` +
+  `schemaName` à l'exécution). Une URL stockée fige l'hôte et le mot de passe : à réserver aux
+  cabinets sur base dédiée.
