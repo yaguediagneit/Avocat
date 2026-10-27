@@ -1,4 +1,8 @@
-process.loadEnvFile(".env");
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // Pas de fichier .env en production (variables injectées par le conteneur).
+}
 const { PrismaClient: TenantClient } = require("@prisma/client");
 const { PrismaClient: PublicClient } = require("../prisma/generated/public");
 

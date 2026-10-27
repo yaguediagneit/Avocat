@@ -8,7 +8,11 @@
  *
  * Usage : node scripts/seed-demo-complet.js [--dry-run] [--tenant=<slug>]
  */
-process.loadEnvFile(".env");
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // Pas de fichier .env en production (variables injectées par le conteneur).
+}
 const argon2 = require("argon2");
 const path = require("path");
 const { readFileSync, existsSync } = require("fs");
@@ -340,6 +344,149 @@ async function seedCabinet(db, users, tag) {
     LOG(tag, `commentaireDossier ← ${msgs.length}`);
   }
   return { clients, dossiers };
+}
+
+/* ------------------------------------------------------------------ */
+/* Parcours procédural & recours (démo)                                 */
+/* ------------------------------------------------------------------ */
+async function seedProceduresRecours(db, dossiers, users, tag) {
+  if ((await db.procedure.count()) > 0 || dossiers.length === 0) return;
+  if (DRY_RUN) { LOG("dry", "procedure/recours ← parcours de démonstration"); return; }
+  const resp = users.responsable?.id || users.any?.id;
+  const rel = (j) => { const x = new Date(); x.setDate(x.getDate() + j); return x; };
+  const mkProc = (dossierId, p) =>
+    db.procedure.create({ data: { dossierId, publieClient: true, creePar: resp, ...p } });
+  const mkEvt = (procedureId, type, description, date) =>
+    db.procedureEvenement.create({ data: { procedureId, type, description, date, creePar: resp } });
+  const mkRecEvt = (recoursId, nouveauStatut, description) =>
+    db.recoursEvenement.create({ data: { recoursId, type: "TRANSITION", nouveauStatut, description, creePar: resp } });
+
+  // Dossier 1 — appel commercial en préparation, délai J-3 (alerte urgente).
+  const d1 = dossiers[0];
+  await db.dossier.update({ where: { id: d1.id }, data: { matiere: "commercial" } });
+  const p1 = await mkProc(d1.id, {
+    niveau: "premiere_instance",
+    juridiction: "Tribunal de grande instance hors classe de Dakar",
+    chambre: "Chambre commerciale",
+    greffe: "Greffe du TGI de Dakar",
+    referenceRg: `RG ${YEAR}/C/0458`,
+    dateSaisine: rel(-90),
+    datePrononce: rel(-17),
+    dateSignification: rel(-12),
+    typeDecision: "jugement",
+    decision: "Condamne le défendeur à payer la somme de 4 500 000 F CFA de dommages-intérêts et aux dépens.",
+    sensDecision: "defavorable",
+    statut: "DECISION_SIGNIFIEE",
+  });
+  await mkEvt(p1.id, "DECISION", "Jugement rendu en audience publique", rel(-17));
+  await mkEvt(p1.id, "SIGNIFICATION", "Jugement signifié à personne par exploit d'huissier", rel(-12));
+  const r1 = await db.recours.create({
+    data: {
+      dossierId: d1.id,
+      procedureOrigineId: p1.id,
+      typeRecours: "appel",
+      origine: "client",
+      juridictionCible: "Cour d'appel de Dakar",
+      pointDepart: "signification",
+      delaiJours: 15,
+      dateReference: rel(-12),
+      dateLimite: rel(3),
+      statut: "EN_VALIDATION_AVOCAT",
+      avocatId: resp,
+      creePar: resp,
+    },
+  });
+  await mkRecEvt(r1.id, "EN_VALIDATION_AVOCAT", "Projet de déclaration d'appel soumis à validation");
+
+  // Dossier 2 — pénal : appel déclaré et enregistré, instruction à la Cour d'appel.
+  const d2 = dossiers[1] || dossiers[0];
+  await db.dossier.update({ where: { id: d2.id }, data: { matiere: "penal" } });
+  const p2 = await mkProc(d2.id, {
+    niveau: "premiere_instance",
+    juridiction: "Tribunal de grande instance de Dakar",
+    chambre: "Chambre correctionnelle",
+    dateSaisine: rel(-120),
+    datePrononce: rel(-25),
+    dateSignification: rel(-20),
+    typeDecision: "jugement",
+    decision: "Déclare le prévenu coupable et le condamne à six mois d'emprisonnement assortis du sursis.",
+    sensDecision: "mixte",
+    statut: "TRANSMIS_RECOURS",
+  });
+  await mkEvt(p2.id, "DECISION", "Jugement correctionnel", rel(-25));
+  const r2 = await db.recours.create({
+    data: {
+      dossierId: d2.id,
+      procedureOrigineId: p2.id,
+      typeRecours: "appel",
+      origine: "client",
+      juridictionCible: "Cour d'appel de Dakar",
+      pointDepart: "prononce",
+      delaiJours: 15,
+      dateReference: rel(-25),
+      dateLimite: rel(-10),
+      dateDeclaration: rel(-15),
+      dateSignification: rel(-12),
+      statut: "EN_INSTRUCTION",
+      avocatId: resp,
+      creePar: resp,
+    },
+  });
+  const p2b = await mkProc(d2.id, {
+    niveau: "appel",
+    juridiction: "Cour d'appel de Dakar",
+    chambre: "Chambre correctionnelle",
+    dateSaisine: rel(-15),
+    statut: "EN_COURS",
+  });
+  await db.recours.update({ where: { id: r2.id }, data: { procedureCibleId: p2b.id } });
+  await mkRecEvt(r2.id, "EN_INSTRUCTION", "Appel enregistré au greffe — dossier en instruction");
+
+  // Dossier 3 — civil : arrêt d'appel rendu, pourvoi en cassation à analyser (J-45).
+  const d3 = dossiers[2] || dossiers[0];
+  await db.dossier.update({ where: { id: d3.id }, data: { matiere: "civil" } });
+  const p3 = await mkProc(d3.id, {
+    niveau: "premiere_instance",
+    juridiction: "Tribunal de grande instance de Dakar",
+    chambre: "Chambre civile",
+    dateSaisine: rel(-200),
+    datePrononce: rel(-120),
+    dateSignification: rel(-115),
+    typeDecision: "jugement",
+    sensDecision: "defavorable",
+    statut: "TRANSMIS_RECOURS",
+  });
+  const p3b = await mkProc(d3.id, {
+    niveau: "appel",
+    juridiction: "Cour d'appel de Dakar",
+    chambre: "Chambre civile",
+    dateSaisine: rel(-100),
+    datePrononce: rel(-20),
+    dateSignification: rel(-15),
+    typeDecision: "arret",
+    decision: "Confirme le jugement entrepris en toutes ses dispositions.",
+    sensDecision: "defavorable",
+    statut: "DECISION_SIGNIFIEE",
+  });
+  const r3 = await db.recours.create({
+    data: {
+      dossierId: d3.id,
+      procedureOrigineId: p3b.id,
+      typeRecours: "pourvoi",
+      origine: "client",
+      juridictionCible: "Cour suprême",
+      pointDepart: "signification",
+      delaiJours: 60,
+      dateReference: rel(-15),
+      dateLimite: rel(45),
+      statut: "A_ANALYSER",
+      avocatId: resp,
+      creePar: resp,
+    },
+  });
+  await mkRecEvt(r3.id, "A_ANALYSER", "Pourvoi créé — analyse des moyens de cassation en cours");
+
+  LOG(tag, "procedure ← 4, recours ← 3 (parcours première instance → appel → pourvoi)");
 }
 
 /* ------------------------------------------------------------------ */
@@ -917,6 +1064,7 @@ async function seedMissions(db, dossiers, users, tag) {
 
       const exercise = await seedComptabiliteBase(db, t.id, tag);
       const { clients, dossiers } = await seedCabinet(db, users, tag);
+      await seedProceduresRecours(db, dossiers, users, tag);
       await seedFinance(db, t.id, exercise, clients, dossiers, users, tag);
       const employees = await db.employee.findMany({ take: 10 });
       await seedPersonnel(db, users, tag);
