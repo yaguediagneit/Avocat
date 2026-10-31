@@ -3,6 +3,8 @@ import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { logAudit } from "@/lib/audit";
 import { hashPassword } from "@/lib/auth";
+import { createInvitation, invitationUrl } from "@/lib/invitation";
+import { randomBytes } from "crypto";
 import { uploadDocument } from "@/lib/s3";
 import { ensureTiersAccount } from "@/lib/tiers";
 import { estIntervenantExterne, type RoleInfo } from "@/lib/rbac";
@@ -15,7 +17,6 @@ const userCreateSchema = z.object({
   clientId: z.string().uuid().optional(),
   titre: z.string().optional(),
   specialite: z.string().optional(),
-  password: z.string().min(8),
   signature: z.string().optional(),
 });
 
@@ -82,7 +83,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Cet email est déjà utilisé." }, { status: 409 });
     }
 
-    const passwordHash = await hashPassword(parsed.data.password);
+    // Hash aléatoire inutilisable : l'utilisateur définit son mot de passe
+    // lui-même via le lien d'invitation. L'admin ne connaît jamais le secret.
+    const passwordHash = await hashPassword(randomBytes(48).toString("base64url"));
 
     const user = await ctx.prisma.user.create({
       data: {
@@ -129,6 +132,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const { token } = await createInvitation(ctx.prisma, user.id);
+    const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    const link = `${invitationUrl(origin, token)}?t=${ctx.tenantId}`;
+
     await logAudit(ctx.prisma, ctx.userId, "user_created", "user", user.id);
     return NextResponse.json(
       {
@@ -142,6 +149,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         actif: user.actif,
         signatureKey,
+        invitationUrl: link,
       },
       { status: 201 }
     );

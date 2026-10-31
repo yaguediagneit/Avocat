@@ -3,6 +3,12 @@ import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { logAudit } from "@/lib/audit";
 import { ensureTiersAccount } from "@/lib/tiers";
+import { computeTaxShares } from "@/lib/payroll";
+
+const spouseSchema = z.object({
+  prenom: z.string().min(1),
+  nom: z.string().optional(),
+});
 
 const employeeSchema = z.object({
   employeeCode: z.string().min(1).optional(),
@@ -19,8 +25,12 @@ const employeeSchema = z.object({
   bankAccount: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
+  sexe: z.enum(["M", "F"]).optional(),
+  dateNaissance: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   maritalStatus: z.enum(["single", "married", "divorced", "widowed"]),
   nbChildren: z.coerce.number().int().min(0).default(0),
+  nbSpouses: z.coerce.number().int().min(0).max(4).default(0),
+  spouses: z.array(spouseSchema).max(4).optional(),
   taxShares: z.coerce.number().min(0.5).optional(),
 });
 
@@ -46,19 +56,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { taxShares, employeeCode, ...data } = parsed.data;
-    const computedShares = taxShares ?? computeTaxShares(data.maritalStatus, data.nbChildren);
+    const { taxShares, employeeCode, spouses, nbSpouses, dateNaissance, ...data } = parsed.data;
+    // Femme mariée ⇒ 1 époux ; homme marié ⇒ jusqu'à 4 épouses.
+    const maxSpouses = data.sexe === "F" ? 1 : 4;
+    const effectiveSpouses =
+      data.maritalStatus === "married" ? Math.min(maxSpouses, Math.max(1, nbSpouses)) : 0;
+    const computedShares =
+      taxShares ?? computeTaxShares(data.maritalStatus, data.nbChildren, effectiveSpouses);
 
     const nextCode = employeeCode ?? await generateEmployeeCode(ctx.prisma);
 
     const employee = await ctx.prisma.employee.create({
       data: {
         ...data,
+        nbSpouses: effectiveSpouses,
         employeeCode: nextCode,
         hireDate: new Date(data.hireDate),
+        dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
         taxShares: computedShares,
       },
     });
+
+    // Chaque conjoint (époux d'une employée, épouses d'un employé) est
+    // rattaché comme ayant droit de l'employé.
+    if (effectiveSpouses > 0) {
+      await ctx.prisma.employeeDependent.createMany({
+        data: Array.from({ length: effectiveSpouses }, (_, i) => ({
+          employeeId: employee.id,
+          prenom:
+            spouses?.[i]?.prenom?.trim() ||
+            (employee.sexe === "F" ? "Époux" : `Épouse ${i + 1}`),
+          nom: spouses?.[i]?.nom?.trim() || employee.lastName,
+          sexe: employee.sexe === "F" ? "M" : "F",
+          lienFamilial: "conjoint",
+        })),
+      });
+    }
 
     // Création automatique du compte auxiliaire tiers (SYSCOHADA révisé).
     try {
@@ -82,11 +115,4 @@ export async function POST(req: NextRequest) {
 async function generateEmployeeCode(prisma: any) {
   const count = await prisma.employee.count();
   return `EMP${(count + 1).toString().padStart(4, "0")}`;
-}
-
-function computeTaxShares(maritalStatus: string, nbChildren: number) {
-  let shares = 1.0;
-  if (maritalStatus === "married") shares += 0.5;
-  shares += nbChildren / 2;
-  return Math.min(shares, 5.0);
 }

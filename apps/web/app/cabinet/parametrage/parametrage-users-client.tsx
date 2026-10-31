@@ -59,8 +59,6 @@ const emptyForm = {
   email: "",
   roleId: "",
   actif: true,
-  password: "",
-  confirmPassword: "",
   signature: "",
   signatureFileName: "",
   signatureKey: "",
@@ -76,6 +74,8 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [invitation, setInvitation] = useState<{ url: string; email: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const isEditing = Boolean(form.id);
 
@@ -126,8 +126,6 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
       nom,
       email: "",
       roleId: clientRole?.id || f.roleId,
-      password: "",
-      confirmPassword: "",
     }));
   }
 
@@ -153,8 +151,6 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
       email: user.email,
       roleId: user.roleId,
       actif: user.actif,
-      password: "",
-      confirmPassword: "",
       signature: "",
       signatureFileName: "",
       signatureKey: user.signatureKey || "",
@@ -167,6 +163,31 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
     setIsOpen(false);
     setForm(emptyForm);
     setError("");
+    setInvitation(null);
+    setCopied(false);
+  }
+
+  async function copyInvitation() {
+    if (!invitation) return;
+    try {
+      await navigator.clipboard.writeText(invitation.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function regenerateInvitation() {
+    if (!form.id) return;
+    setError("");
+    const res = await fetch(`/api/parametres/users/${form.id}/invitation`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Impossible de générer le lien d'invitation.");
+      return;
+    }
+    setInvitation({ url: data.invitationUrl, email: data.email });
   }
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
@@ -193,14 +214,6 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
   function validate() {
     if (!form.prenom.trim() || !form.nom.trim() || !form.email.trim() || !form.roleId) {
       return "Tous les champs obligatoires doivent être renseignés.";
-    }
-    if (!isEditing || form.password) {
-      if (form.password.length < 8) {
-        return "Le mot de passe doit faire au moins 8 caractères.";
-      }
-      if (form.password !== form.confirmPassword) {
-        return "Les mots de passe ne correspondent pas.";
-      }
     }
     return "";
   }
@@ -229,10 +242,6 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
 
     if (form.signature && form.signature.startsWith("data:")) {
       body.signature = form.signature;
-    }
-
-    if (!isEditing || form.password) {
-      body.password = form.password;
     }
 
     try {
@@ -290,7 +299,11 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
         ]);
       }
 
-      closeModal();
+      if (data.invitationUrl) {
+        setInvitation({ url: data.invitationUrl, email: data.email });
+      } else {
+        closeModal();
+      }
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -568,29 +581,66 @@ export function ParametrageUsersClient({ initialUsers, roles, clients, employees
                   </div>
                 )}
 
-                <div>
-                  <label className="mb-0 block text-sm font-medium">
-                    Mot de passe {isEditing && "(laisser vide pour ne pas changer)"}
-                  </label>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => updateField("password", e.target.value)}
-                    className="input !py-[6px] !px-[10px]"
-                    required={!isEditing}
-                    minLength={8}
-                  />
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">
+                    Le mot de passe n'est jamais saisi par l'administrateur : un
+                    lien d'invitation à usage unique est généré et le nouvel
+                    utilisateur définit lui-même son mot de passe.
+                  </p>
                 </div>
-                <div>
-                  <label className="mb-0 block text-sm font-medium">Confirmer le mot de passe</label>
-                  <input
-                    type="password"
-                    value={form.confirmPassword}
-                    onChange={(e) => updateField("confirmPassword", e.target.value)}
-                    className="input !py-[6px] !px-[10px]"
-                    required={!isEditing || Boolean(form.password)}
-                  />
-                </div>
+
+                {isEditing && (
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={regenerateInvitation}
+                      className="btn-secondary !py-[6px] text-sm"
+                    >
+                      Générer un lien d'invitation
+                    </button>
+                  </div>
+                )}
+
+                {invitation && (
+                  <div className="md:col-span-2 space-y-2 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-sm font-medium text-emerald-800">
+                      Lien d'invitation pour {invitation.email} (valable 72 h,
+                      usage unique) :
+                    </p>
+                    <p className="break-all rounded bg-white p-2 font-mono text-xs">
+                      {invitation.url}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={copyInvitation}
+                        className="btn-secondary !py-[6px] text-sm"
+                      >
+                        {copied ? "Copié !" : "Copier le lien"}
+                      </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          `Bonjour, voici votre lien d'activation pour la plateforme du cabinet (valable 72 h) : ${invitation.url}`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-secondary !py-[6px] text-sm"
+                      >
+                        Partager sur WhatsApp
+                      </a>
+                      <a
+                        href={`mailto:${invitation.email}?subject=${encodeURIComponent(
+                          "Lien d'activation de votre compte"
+                        )}&body=${encodeURIComponent(
+                          `Bonjour,\n\nVoici votre lien d'activation pour la plateforme du cabinet (valable 72 h, usage unique) :\n${invitation.url}\n\nCordialement`
+                        )}`}
+                        className="btn-secondary !py-[6px] text-sm"
+                      >
+                        Envoyer par e-mail
+                      </a>
+                    </div>
+                  </div>
+                )}
                 </div>
               </div>
 

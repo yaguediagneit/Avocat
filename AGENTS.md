@@ -129,6 +129,20 @@
 - L'URL PDF reproduit le même filtrage (`mois`, `debut`, `fin`) et le titre reflète
   la période choisie.
 
+## Personnel / paie
+- `Employee.sexe` ("M"/"F") pilote le conjoint : **femme mariée ⇒ 1 époux**,
+  **homme marié ⇒ jusqu'à 4 épouses** (`nbSpouses`, clampé côté API).
+  `computeTaxShares(maritalStatus, nbChildren, nbSpouses)` de `lib/payroll.ts`
+  ajoute 0,5 part **par conjoint** (marié ⇒ min 1), plafond 5 parts.
+- Les conjoints sont créés comme `EmployeeDependent` (`lienFamilial = "conjoint"`,
+  `sexe` = "F" pour épouse / "M" pour époux, placeholder « Épouse N » / « Époux »)
+  à la création de l'employé (POST `/api/personnel/employees`, body `spouses[]`
+  prénom/nom). Au PATCH, les ayants droit conjoints **non rattachés**
+  (`insuredEmployeeId = null`) sont réconciliés ; ceux rattachés restent gérés
+  dans le module Assurances. À l'affiliation (`action insuredEmployee` de
+  `/api/personnel/assurances`), les conjoints non rattachés sont automatiquement
+  liés à la couverture.
+
 ## Charges et immobilisations
 - Catégories de charge = `ChargeCategory` (paramétrage). Le seed contient loyer, transport,
   fournitures, services, impôts, personnel, divers + factures Électricité (SENELEC, 6062),
@@ -249,6 +263,13 @@
   `HONORAIRES_CABINET`/`DEBOURS_CABINET` sont des recettes cabinet — bénéficiaire réel
   obligatoire sinon ; un paiement rapproché n'est pas supprimable ; paiements non
   rapprochés bloquent la clôture.
+- Pont comptabilité : pour les natures cabinet, `POST /api/transactions/[id]/paiements`
+  émet automatiquement une `Facture` (client du dossier, montant saisi = TTC, TVA au
+  taux `TvaRate.isDefault` ventilée en HT) + un `Paiement` de facture, ce qui génère
+  l'écriture comptable via `createEntryFromPayment` (D 57/52 / C 706 + C 443) ; le lien
+  est tracé par `TransactionPaiement.factureId` et le paiement est marqué `rapproche`.
+  Les natures de tiers (séquestre, notaire, administration…) ne produisent aucune
+  écriture — ce ne sont pas des recettes.
 - Schémas zod : `lib/transactions-schemas.ts` ; seed : `node scripts/seed-transactions.js`
   (14 types `VENTE_*`/`BAIL_*`/`MANDAT_*`/`ETAT_LIEUX`/`AVENANT`/`RESILIATION` + 22 modèles
   `TPL_*`, idempotent). Push schéma multi-tenant : `node scripts/push-tenant-schema.js`.

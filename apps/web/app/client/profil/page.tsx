@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { ProfilForm } from "@/components/profil-form";
+import { TotpSetup } from "@/components/totp-setup";
 
 export default async function ClientProfilPage() {
   const session = await getSession();
@@ -26,6 +27,11 @@ export default async function ClientProfilPage() {
           Gérez vos informations personnelles et votre mot de passe.
         </p>
       </div>
+
+      <section className="card space-y-4">
+        <h2 className="text-lg font-semibold">Authentification à deux facteurs</h2>
+        <TotpSetup initialEnabled={user.mfaEnabled} />
+      </section>
 
       <ProfilForm
         initialUser={{

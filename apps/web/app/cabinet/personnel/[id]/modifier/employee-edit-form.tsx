@@ -32,8 +32,12 @@ interface EmployeeData {
   bankAccount: string | null;
   email: string | null;
   phone: string | null;
+  sexe: string | null;
+  dateNaissance: Date | null;
   maritalStatus: string;
   nbChildren: number;
+  nbSpouses: number;
+  insuranceDependents?: { prenom: string; nom: string }[];
   histories?: EmployeeHistoryItem[];
 }
 
@@ -67,7 +71,39 @@ export function EmployeeEditForm({ employee }: EmployeeEditFormProps) {
     phone: employee.phone || "",
     maritalStatus: employee.maritalStatus,
     nbChildren: String(employee.nbChildren),
+    sexe: employee.sexe || "M",
+    dateNaissance: employee.dateNaissance
+      ? new Date(employee.dateNaissance).toISOString().split("T")[0]
+      : "",
+    nbSpouses: String(employee.nbSpouses || 1),
   });
+  const [spouses, setSpouses] = useState<{ prenom: string; nom: string }[]>(() => {
+    const max = employee.sexe === "F" ? 1 : 4;
+    const count = Math.min(max, Math.max(1, employee.nbSpouses || 1));
+    const existing = employee.insuranceDependents ?? [];
+    return Array.from({ length: count }, (_, i) => ({
+      prenom: existing[i]?.prenom ?? "",
+      nom: existing[i]?.nom ?? employee.lastName,
+    }));
+  });
+
+  const maxSpouses = form.sexe === "F" ? 1 : 4;
+
+  function setSpouseCount(value: string) {
+    const n = Math.min(maxSpouses, Math.max(1, Number(value) || 1));
+    setForm((f) => ({ ...f, nbSpouses: String(n) }));
+    setSpouses((prev) =>
+      Array.from({ length: n }, (_, i) => prev[i] ?? { prenom: "", nom: form.lastName })
+    );
+  }
+
+  function setSexe(sexe: string) {
+    setForm((f) => ({ ...f, sexe }));
+    if (sexe === "F") {
+      setForm((f) => ({ ...f, nbSpouses: "1" }));
+      setSpouses((prev) => prev.slice(0, 1));
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +114,8 @@ export function EmployeeEditForm({ employee }: EmployeeEditFormProps) {
       ...form,
       baseSalary: Number(form.baseSalary),
       nbChildren: Number(form.nbChildren),
+      nbSpouses: form.maritalStatus === "married" ? Number(form.nbSpouses) : 0,
+      spouses: form.maritalStatus === "married" ? spouses : [],
     };
 
     const res = await fetch(`/api/personnel/employees/${employee.id}`, {
@@ -171,6 +209,17 @@ export function EmployeeEditForm({ employee }: EmployeeEditFormProps) {
           <input type="number" min="0" step="1" className="input" value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value })} required />
         </div>
         <div>
+          <label className="mb-1 block text-sm font-medium">Date de naissance</label>
+          <input type="date" className="input" value={form.dateNaissance} onChange={(e) => setForm({ ...form, dateNaissance: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Sexe</label>
+          <select className="input" value={form.sexe} onChange={(e) => setSexe(e.target.value)}>
+            <option value="M">Masculin</option>
+            <option value="F">Féminin</option>
+          </select>
+        </div>
+        <div>
           <label className="mb-1 block text-sm font-medium">Situation familiale</label>
           <select className="input" value={form.maritalStatus} onChange={(e) => setForm({ ...form, maritalStatus: e.target.value })}>
             <option value="single">Célibataire</option>
@@ -179,6 +228,64 @@ export function EmployeeEditForm({ employee }: EmployeeEditFormProps) {
             <option value="widowed">Veuf/Veuve</option>
           </select>
         </div>
+        {form.maritalStatus === "married" && (
+          <>
+            {form.sexe === "F" ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Nombre d&apos;époux</label>
+                <input type="number" className="input" value="1" disabled />
+                <p className="mt-1 text-xs text-gray-500">
+                  L&apos;époux ajoute 0,5 part fiscale et est rattaché comme ayant droit.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Nombre d&apos;épouses</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="4"
+                  className="input"
+                  value={form.nbSpouses}
+                  onChange={(e) => setSpouseCount(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Chaque épouse ajoute 0,5 part fiscale et est rattachée comme ayant droit.
+                </p>
+              </div>
+            )}
+            {spouses.map((s, i) => (
+              <div key={i} className="md:col-span-2 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    {form.sexe === "F" ? "Prénom époux" : `Prénom épouse ${i + 1}`}
+                  </label>
+                  <input
+                    className="input"
+                    value={s.prenom}
+                    onChange={(e) =>
+                      setSpouses((prev) => prev.map((p, j) => (j === i ? { ...p, prenom: e.target.value } : p)))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    {form.sexe === "F" ? "Nom époux" : `Nom épouse ${i + 1}`}
+                  </label>
+                  <input
+                    className="input"
+                    value={s.nom}
+                    placeholder={form.lastName}
+                    onChange={(e) =>
+                      setSpouses((prev) => prev.map((p, j) => (j === i ? { ...p, nom: e.target.value } : p)))
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+          </>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium">Nombre d&apos;enfants</label>
           <input type="number" min="0" className="input" value={form.nbChildren} onChange={(e) => setForm({ ...form, nbChildren: e.target.value })} />

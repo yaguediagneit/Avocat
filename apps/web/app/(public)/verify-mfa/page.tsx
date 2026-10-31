@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 function VerifyMfaPageContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const method = searchParams.get("method") || "email";
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
 
@@ -22,7 +23,11 @@ function VerifyMfaPageContent() {
       setError(data.error || "Code invalide");
       return;
     }
-    if (data.isClient) {
+    if (data.passwordChangeRequired) {
+      window.location.href = "/changer-mot-de-passe";
+    } else if (data.totpSetupRequired) {
+      window.location.href = "/configurer-2fa";
+    } else if (data.isClient) {
       // Navigation hard : invalide le Router Cache pour un rendu frais.
       window.location.href = "/client";
     } else {
@@ -35,7 +40,9 @@ function VerifyMfaPageContent() {
       <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-4">
         <h1 className="text-center text-xl font-bold">Vérification MFA</h1>
         <p className="text-center text-sm text-gray-600">
-          Saisissez le code à 6 chiffres envoyé à votre adresse e-mail.
+          {method === "totp"
+            ? "Saisissez le code à 6 chiffres de votre application d'authentification (Google ou Microsoft Authenticator)."
+            : "Saisissez le code à 6 chiffres envoyé à votre adresse e-mail."}
         </p>
         <p className="text-center text-xs text-gray-500">{email}</p>
         {error && (

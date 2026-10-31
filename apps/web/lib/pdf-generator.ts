@@ -534,6 +534,13 @@ function splitLongParagraph(para: string, maxLen = 620): string[] {
   return out;
 }
 
+// Bloc signature des contrats : ligne de rôles « … (lu et approuvé) »
+// (souvent deux colonnes séparées par de grands espaces) et ligne de
+// traits « ______  ______ ». Ces lignes restent autonomes — les espaces
+// multiples sont conservés car ils délimitent les colonnes.
+const SIGNATURE_ROLE = /\(lu et approuv[ée]\)/i;
+const SIGNATURE_UNDERSCORES = /^_+(?:\s+_+)*$/;
+
 // Reconstruit les paragraphes du corps : les lignes vides séparent les
 // paragraphes, les lignes « autonomes » (intitulés, salutations, items de
 // liste, formules de politesse) restent isolées, et les lignes successives
@@ -551,10 +558,21 @@ function bodyToParagraphs(text: string): string[] {
       paragraphs.push(...splitLongParagraph(piece));
     }
   };
-  for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
-    const t = raw.trim();
+  const srcLines = text.replace(/\r\n?/g, "\n").split("\n");
+  for (let li = 0; li < srcLines.length; li++) {
+    const t = srcLines[li].trim();
     if (!t) {
       flush();
+      continue;
+    }
+    const nextIsSigRule = SIGNATURE_UNDERSCORES.test((srcLines[li + 1] || "").trim());
+    if (
+      SIGNATURE_ROLE.test(t) ||
+      SIGNATURE_UNDERSCORES.test(t) ||
+      (nextIsSigRule && t.length <= 200)
+    ) {
+      flush();
+      paragraphs.push(t);
       continue;
     }
     if (t.endsWith(":") || STANDALONE_LINE.test(t)) {
@@ -940,7 +958,98 @@ export async function generateLegalPdf(
   // marges (sauf la dernière ligne de chaque paragraphe), intitulés en gras.
   const bodyColor = { r: 0.15, g: 0.15, b: 0.15 };
   let firstParagraph = true;
-  for (const para of bodyParagraphs) {
+  let inSignatureBlock = false;
+  const rightSigX = MARGIN + contentWidth / 2 + 20;
+  const drawSigRules = (nCols: number) => {
+    // Espace réservé à la signature manuscrite puis règle dessinée par
+    // colonne (plus propre que des soulignés en texte).
+    y -= fontSize * 3;
+    for (let c = 0; c < nCols; c++) {
+      const x = c === 0 ? MARGIN : rightSigX;
+      const w = c === 0 ? contentWidth / 2 - 30 : contentWidth / 2 - 20;
+      page.drawLine({
+        start: { x, y },
+        end: { x: x + w, y },
+        thickness: 0.8,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+    }
+    y -= fontSize * 0.9;
+  };
+  for (let pi = 0; pi < bodyParagraphs.length; pi++) {
+    const para = bodyParagraphs[pi];
+    const nextIsSigRule = SIGNATURE_UNDERSCORES.test(
+      (bodyParagraphs[pi + 1] || "").trim()
+    );
+    const isSigRole =
+      SIGNATURE_ROLE.test(para) || (nextIsSigRule && para.length <= 200);
+    const isSigLine = isSigRole || SIGNATURE_UNDERSCORES.test(para);
+    if (isSigLine) {
+      // Bloc signature en colonnes : un signataire par colonne (rôle en
+      // gras au-dessus d'une règle de signature). Une ligne de
+      // respiration précède le bloc.
+      if (!inSignatureBlock) {
+        inSignatureBlock = true;
+        y -= fontSize * 2;
+      }
+      if (y < FOOTER_LIMIT + fontSize * 6) {
+        drawFooter(page, cabinet, theme, font, currentPage, totalPages);
+        page = wrapPdfPage(doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]));
+        drawHeader(page, cabinet, theme, font, boldFont, logo);
+        y = PAGE_HEIGHT - HEADER_HEIGHT - 10;
+        currentPage++;
+      }
+      if (isSigRole) {
+        // Colonnes : les fragments séparés par de grands espaces forment
+        // les signataires (« L'Employeur    Le Salarié (lu et approuvé) »).
+        let signers = para.split(/\s{2,}/).map((c) => c.trim()).filter(Boolean);
+        if (signers.length < 2) {
+          // Ligne fusionnée en espaces simples : chaque libellé se
+          // termine par « (lu et approuvé) ».
+          const parts: string[] = [];
+          let lastEnd = 0;
+          for (const m of para.matchAll(/\(lu et approuv[ée]\)/gi)) {
+            const label = para.slice(lastEnd, m.index).replace(/\s+/g, " ").trim();
+            parts.push(label ? `${label} (lu et approuvé)` : "(lu et approuvé)");
+            lastEnd = (m.index ?? 0) + m[0].length;
+          }
+          if (parts.length) signers = parts;
+        }
+        const nCols = Math.min(Math.max(signers.length, 1), 2);
+        const colW = nCols > 1 ? contentWidth / 2 - 20 : contentWidth / 2;
+        const wrappedPerCol = signers
+          .slice(0, 2)
+          .map((c) => wrapText(c.replace(/\s+/g, " "), boldFont, fontSize - 1, colW));
+        const rows = Math.max(...wrappedPerCol.map((w) => w.length));
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < wrappedPerCol.length; c++) {
+            const wl = wrappedPerCol[c][r];
+            if (!wl) continue;
+            page.drawText(wl, {
+              x: c === 0 ? MARGIN : rightSigX,
+              y,
+              size: fontSize - 1,
+              font: boldFont,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+          }
+          y -= fontSize * 1.3;
+        }
+        drawSigRules(nCols);
+        // Une éventuelle ligne de traits qui suit est remplacée par les
+        // règles dessinées : on la consomme sans la rendre.
+        if (nextIsSigRule) pi++;
+      } else {
+        drawSigRules(
+          Math.min(
+            Math.max(1, para.split(/\s{2,}/).filter((c) => c.trim()).length),
+            2
+          )
+        );
+      }
+      continue;
+    }
+    inSignatureBlock = false;
     const heading = paragraphIsHeading(para);
     const pFont = heading ? boldFont : font;
     const lines = wrapText(para, pFont, fontSize, contentWidth);

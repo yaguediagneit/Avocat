@@ -1050,6 +1050,173 @@ de sortie du {{date_etat_sortie|date}}.
 Le Locataire                                 Le Bailleur / Représentant
 _______________________                        _______________________`,
   },
+  {
+    code: "TPL_VENTE_BIEN_MEUBLE",
+    titre: "Contrat de vente de bien meuble",
+    typeCode: "VENTE_BIEN_MEUBLE",
+    validationMinimale: "JURISTE",
+    contenu: `CONTRAT DE VENTE DE BIEN MEUBLE
+Référence : {{reference_transaction|Référence}}
+
+ENTRE :
+
+{{vendeur_nom|Nom du vendeur}}, {{vendeur_qualite|Qualité}},
+demeurant à {{vendeur_adresse|Adresse}}, ci-après « le Vendeur »,
+
+ET :
+
+{{acquereur_nom|Nom de l'acquéreur}}, {{acquereur_qualite|Qualité}},
+demeurant à {{acquereur_adresse|Adresse}}, ci-après « l'Acquéreur ».
+
+ARTICLE 1 — OBJET
+Le Vendeur cède à l'Acquéreur, qui accepte, la pleine propriété du bien
+meuble désigné ci-après :
+{{designation_bien|Désignation complète du bien (nature, marque, n° de série, état)}}.
+
+ARTICLE 2 — PROPRIÉTÉ ET SÛRETÉS
+Le Vendeur déclare être propriétaire du bien, que celui-ci est libre de
+toute sûreté, nantissement, gage ou inscription (notamment au RCCM) et de
+toute réclamation de tiers.
+Justificatifs : {{justificatifs_propriete|Titre de propriété / facture / immatriculation}}.
+Sûretés grevant le bien, le cas échéant : {{suretes|Néant ou préciser}}.
+
+ARTICLE 3 — PRIX ET PAIEMENT
+Prix de vente : {{prix|Montant en chiffres}} {{devise|Devise}},
+soit {{prix_lettres|Montant en lettres}}.
+Modalités de paiement : {{modalite_paiement|Comptant / échéancier / autre}}.
+
+ARTICLE 4 — DÉLIVRANCE
+La délivrance du bien intervient le {{date_delivrance|Date}} à
+{{lieu_delivrance|Lieu}}. Le transfert des risques opère à compter de la
+délivrance.
+
+ARTICLE 5 — GARANTIES
+Le Vendeur garantit l'Acquéreur contre l'éviction et les vices cachés
+dans les conditions légales. L'Acquéreur déclare avoir examiné le bien
+et l'accepter dans l'état où il se trouve.
+
+ARTICLE 6 — FORMALITÉS DE TRANSFERT
+{{formalites_transfert|Formalités propres à la nature du bien : immatriculation,
+changement de propriétaire, déclarations — et répartition des frais}}.
+
+${CLAUSE_CABINET}
+
+Fait à {{lieu_signature|Lieu}}, le {{date_signature|Date}},
+en {{nb_originaux|Nombre}} exemplaires originaux.
+
+Le Vendeur (lu et approuvé)                   L'Acquéreur (lu et approuvé)
+_______________________                        _______________________`,
+  },
+  {
+    code: "TPL_CESSION_AUTORISATION_OCCUPER",
+    titre: "Cession d'autorisation d'occuper",
+    typeCode: "VENTE_AUTORISATION_OCCUPER",
+    validationMinimale: "AVOCAT",
+    contenu: `ACTE DE CESSION D'AUTORISATION D'OCCUPER
+Référence : {{reference_transaction|Référence}}
+
+ENTRE :
+
+{{cedant_nom|Nom du cédant}}, {{cedant_qualite|Qualité}},
+demeurant à {{cedant_adresse|Adresse}}, ci-après « le Cédant »,
+
+ET :
+
+{{cessionnaire_nom|Nom du cessionnaire}}, {{cessionnaire_qualite|Qualité}},
+demeurant à {{cessionnaire_adresse|Adresse}}, ci-après « le Cessionnaire ».
+
+ARTICLE 1 — OBJET
+Le Cédant cède au Cessionnaire, qui accepte, les droits qu'il tient de
+l'autorisation d'occuper n° {{numero_autorisation|Numéro de l'autorisation}}
+délivrée le {{date_autorisation|Date de délivrance}} par
+{{autorite_delivrance|Autorité ayant délivré l'autorisation}}, portant sur
+{{designation_terrain|Désignation et localisation du terrain}}.
+
+ARTICLE 2 — AGRÉMENT DE L'AUTORITÉ
+La présente cession est consentie sous réserve de l'agrément de
+l'autorité délivrante, conformément aux conditions de l'autorisation.
+{{agrement|Agrément obtenu le … / demande en cours / condition suspensive}}.
+
+ARTICLE 3 — PRIX ET PAIEMENT
+Prix de la cession : {{prix|Montant en chiffres}} {{devise|Devise}}.
+Modalités de paiement : {{modalite_paiement|Comptant / échéancier / autre}}.
+Redevances et charges en cours : {{redevances|État et répartition}}.
+
+ARTICLE 4 — SITUATION DU DROIT CÉDÉ
+Le Cédant déclare l'autorisation en cours de validité, non frappée de
+retrait ni de sûreté, et être à jour de ses obligations envers
+l'autorité délivrante.
+
+ARTICLE 5 — FORMALITÉS
+Les parties s'engagent à accomplir ensemble les formalités de transfert
+auprès de {{autorite_delivrance|l'autorité compétente}} : déclaration de
+mutation, enregistrement et inscription éventuels.
+Frais à la charge de : {{frais|Répartition des frais}}.
+
+${CLAUSE_CABINET}
+
+Fait à {{lieu_signature|Lieu}}, le {{date_signature|Date}},
+en {{nb_originaux|Nombre}} exemplaires originaux.
+
+Le Cédant (lu et approuvé)                    Le Cessionnaire (lu et approuvé)
+_______________________                        _______________________`,
+  },
+  {
+    code: "TPL_BAIL_MIXTE",
+    titre: "Bail mixte (habitation et professionnel)",
+    typeCode: "BAIL_MIXTE",
+    validationMinimale: "AVOCAT",
+    contenu: `CONTRAT DE BAIL MIXTE (HABITATION ET PROFESSIONNEL)
+Référence : {{reference_transaction|Référence}}
+
+ENTRE :
+
+{{bailleur_nom|Nom du bailleur}}, {{bailleur_qualite|Qualité}},
+demeurant à {{bailleur_adresse|Adresse}}, ci-après « le Bailleur »,
+
+ET :
+
+{{locataire_nom|Nom du locataire}}, {{locataire_qualite|Qualité}},
+demeurant à {{locataire_adresse|Adresse}}, ci-après « le Locataire ».
+
+ARTICLE 1 — DÉSIGNATION DU BIEN
+{{designation_bien|Désignation complète du bien}} — {{adresse_bien|Adresse}},
+répartition des surfaces : {{repartition_surfaces|Part habitation / part professionnelle}}.
+
+ARTICLE 2 — DESTINATION MIXTE
+Le bien est loué à usage mixte :
+- habitation : {{usage_habitation|Pièces à usage d'habitation}} ;
+- professionnel : {{usage_professionnel|Pièces et activité exercée}}.
+Toute modification de cette répartition requiert l'accord écrit du Bailleur.
+
+ARTICLE 3 — DURÉE
+Le bail prend effet le {{date_effet|Date d'effet}} pour une durée de
+{{duree|Durée}}, {{renouvellement|modalités de renouvellement}}.
+
+ARTICLE 4 — CONDITIONS FINANCIÈRES
+Loyer mensuel global : {{loyer|Montant}} {{devise|Devise}}, dont
+{{loyer_habitation|part habitation}} pour la partie habitation et
+{{loyer_pro|part professionnelle}} pour la partie professionnelle.
+Dépôt de garantie : {{depot_garantie|Montant}} {{devise|Devise}}.
+Charges : {{charges|Charges locatives et répartition}}.
+
+ARTICLE 5 — OBLIGATIONS DES PARTIES
+Le Locataire use du bien conformément à sa destination, sans troubler le
+voisinage ; le Bailleur garantit la jouissance paisible et effectue les
+réparations à sa charge.
+{{obligations|Précisions : enseigne, nuisances, assurance, réparations locatives}}.
+
+ARTICLE 6 — CLAUSES PARTICULIÈRES
+{{clauses_particulieres|Sous-location, cession, révision, préavis différenciés}}.
+
+${CLAUSE_CABINET}
+
+Fait à {{lieu_signature|Lieu}}, le {{date_signature|Date}},
+en {{nb_originaux|Nombre}} exemplaires originaux.
+
+Le Bailleur (lu et approuvé)                   Le Locataire (lu et approuvé)
+_______________________                        _______________________`,
+  },
 ];
 
 /* ------------------------------------------------------------------ */

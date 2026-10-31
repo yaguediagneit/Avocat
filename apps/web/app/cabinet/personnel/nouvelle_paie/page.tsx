@@ -12,6 +12,7 @@ interface Employee {
   baseSalary: number;
   maritalStatus: string;
   nbChildren: number;
+  nbSpouses: number;
   taxShares: number;
 }
 
@@ -183,7 +184,7 @@ export default function NewPayrollPage() {
               value={form.employeeId}
               onChange={(e) => {
                 const emp = employees.find((x) => x.id === e.target.value);
-                const parts = emp ? emp.taxShares || computeTaxShares(emp.maritalStatus, emp.nbChildren) : 1;
+                const parts = emp ? emp.taxShares || computeTaxShares(emp.maritalStatus, emp.nbChildren, emp.nbSpouses) : 1;
                 setForm({ ...form, employeeId: e.target.value, parts });
               }}
               required

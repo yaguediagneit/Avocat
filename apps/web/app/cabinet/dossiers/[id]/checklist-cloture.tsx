@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PaginatedUl } from "@/components/pagination";
 
 interface ChecklistItem {
   id: string;
@@ -179,7 +178,6 @@ export function ChecklistCloture({ dossierId, onAllChecked }: ChecklistCloturePr
       )}
 
       <ul className="space-y-1">
-        <PaginatedUl>
         {items.map((item) => (
           <li
             key={item.id}
@@ -209,7 +207,6 @@ export function ChecklistCloture({ dossierId, onAllChecked }: ChecklistCloturePr
             </button>
           </li>
         ))}
-        </PaginatedUl>
       </ul>
 
       {allChecked && (

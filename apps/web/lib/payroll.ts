@@ -44,9 +44,9 @@ export interface ComputedPayroll {
   lines: ComputedPayrollLine[];
 }
 
-export function computeTaxShares(maritalStatus: string, nbChildren: number): number {
+export function computeTaxShares(maritalStatus: string, nbChildren: number, nbSpouses = 1): number {
   let shares = 1.0;
-  if (maritalStatus === "married") shares += 0.5;
+  if (maritalStatus === "married") shares += 0.5 * Math.max(1, nbSpouses);
   shares += nbChildren / 2;
   return Math.min(shares, 5.0);
 }

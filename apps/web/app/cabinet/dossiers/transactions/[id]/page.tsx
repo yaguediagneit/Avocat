@@ -61,7 +61,10 @@ export default async function TransactionDetailPage({
         },
         orderBy: { createdAt: "asc" },
       },
-      paiements: { orderBy: { date: "desc" } },
+      paiements: {
+        orderBy: { date: "desc" },
+        include: { facture: { select: { numero: true } } },
+      },
       evenements: { orderBy: { date: "desc" }, take: 200 },
     },
   });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
+import { passwordSchema } from "@/lib/password-policy";
 import { getSessionFromRequest } from "@/lib/session";
 import { getTenantPrisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
@@ -8,8 +9,8 @@ import { publicPrisma } from "@/lib/prisma";
 
 const resetSchema = z
   .object({
-    password: z.string().min(8),
-    confirmPassword: z.string().min(8),
+    password: passwordSchema,
+    confirmPassword: passwordSchema,
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Les mots de passe ne correspondent pas.",

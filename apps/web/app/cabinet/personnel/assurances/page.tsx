@@ -176,7 +176,7 @@ export default async function AssurancesPage() {
     createdAt: ie.createdAt.toISOString(),
     updatedAt: ie.updatedAt.toISOString(),
     employee: { id: ie.employee.id, firstName: ie.employee.firstName, lastName: ie.employee.lastName },
-    contract: { id: ie.contract.id, reference: ie.contract.reference, tauxGeneral: ie.contract.tauxGeneral, insurer: { id: ie.contract.insurer.id, nom: ie.contract.insurer.nom } },
+    contract: { id: ie.contract.id, reference: ie.contract.reference, tauxGeneral: ie.contract.tauxGeneral, dateDebut: ie.contract.dateDebut.toISOString(), dateFin: ie.contract.dateFin.toISOString(), insurer: { id: ie.contract.insurer.id, nom: ie.contract.insurer.nom } },
   }));
 
   const clientDependents = dependents.map((d) => ({

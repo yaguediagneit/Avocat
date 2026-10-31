@@ -1,0 +1,22 @@
+﻿feat(securite): politique de mot de passe, 2FA TOTP obligatoire et invitations par lien
+
+- Politique : 10 caracteres min. (majuscule, minuscule, chiffre, special) dans
+  lib/password-policy.ts, appliquee aux routes auth/users/reset/tenants et aux
+  formulaires.
+- Changement force : users.password_change_required + detection du mot de
+  passe non conforme a la connexion ; le middleware bloque tout acces sauf
+  /changer-mot-de-passe et /api/auth.
+- 2FA TOTP obligatoire (Google/Microsoft Authenticator) : routes
+  mfa/totp/setup|enable|disable (QR code), verify-mfa accepte le code TOTP,
+  page /configurer-2fa imposee par le middleware tant qu'aucun secret TOTP
+  n'est enregistre.
+- Invitations : l'admin ne saisit plus de mot de passe ; un lien a usage
+  unique (token hache sha256, 72 h) est partage (copie, WhatsApp, e-mail) et
+  l'utilisateur definit son mot de passe sur /invitation/[token]. Nouvelle
+  table user_invitations + routes d'invitation.
+- Donnees de demo : script scripts/seed-demo-tables-vides.js pour les tables
+  encore vides du tenant.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

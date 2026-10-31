@@ -37,7 +37,11 @@ export default function LoginPage() {
       return;
     }
     if (data.requiresMfa) {
-      window.location.href = `/verify-mfa?email=${encodeURIComponent(email)}`;
+      window.location.href = `/verify-mfa?email=${encodeURIComponent(email)}&method=${encodeURIComponent(data.mfaMethod || "email")}`;
+    } else if (data.passwordChangeRequired) {
+      window.location.href = "/changer-mot-de-passe";
+    } else if (data.totpSetupRequired) {
+      window.location.href = "/configurer-2fa";
     } else if (data.isClient) {
       // Navigation hard : invalide le Router Cache pour garantir un rendu
       // frais du layout avec la nouvelle session.

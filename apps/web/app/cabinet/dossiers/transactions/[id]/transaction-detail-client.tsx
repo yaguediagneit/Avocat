@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -42,6 +42,76 @@ const TRANSITIONS_SENSIBLES = new Set([
 
 function fmt(d?: string | null) {
   return d ? new Date(d).toLocaleDateString("fr-FR") : "—";
+}
+function isoToFr(iso: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+function frToIso(fr: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr.trim());
+  if (!m) return null;
+  const d = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
+  return !isNaN(d.getTime()) && d.getDate() === +m[1] && d.getMonth() === +m[2] - 1
+    ? `${m[3]}-${m[2]}-${m[1]}`
+    : null;
+}
+/// Champ de saisie au format jj/mm/aaaa : masque automatique pendant la frappe,
+/// valeur stockée en ISO (yyyy-mm-dd) ; l'icône calendrier ouvre le sélecteur natif.
+function DateInput({
+  value,
+  onChange,
+  className = "",
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+  className?: string;
+}) {
+  const [text, setText] = useState(() => isoToFr(value));
+  useEffect(() => setText(isoToFr(value)), [value]);
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="jj/mm/aaaa"
+        className={`${className} pr-9`}
+        value={text}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+          const fr =
+            digits.slice(0, 2) +
+            (digits.length > 2 ? "/" + digits.slice(2, 4) : "") +
+            (digits.length > 4 ? "/" + digits.slice(4) : "");
+          setText(fr);
+          if (digits.length === 8) {
+            const iso = frToIso(fr);
+            if (iso) onChange(iso);
+          } else if (digits.length === 0) {
+            onChange("");
+          }
+        }}
+        onBlur={() => {
+          const iso = frToIso(text);
+          setText(iso ? isoToFr(iso) : isoToFr(value));
+        }}
+      />
+      <svg
+        className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <input
+        type="date"
+        tabIndex={-1}
+        aria-hidden
+        className="absolute right-0 top-0 h-full w-9 cursor-pointer opacity-0"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
 }
 function money(n?: number | null, devise = "XOF") {
   return n != null ? `${n.toLocaleString("fr-FR")} ${devise}` : "—";
@@ -765,11 +835,10 @@ export function TransactionDetailClient({
                   <div className="space-y-2">
                     <div>
                       <label className={labelCls}>Date de signature *</label>
-                      <input
-                        type="date"
+                      <DateInput
                         className={inputCls}
                         value={preuves.acteSigneLe}
-                        onChange={(e) => setPreuves({ ...preuves, acteSigneLe: e.target.value })}
+                        onChange={(v) => setPreuves({ ...preuves, acteSigneLe: v })}
                       />
                     </div>
                     <div>
@@ -792,11 +861,10 @@ export function TransactionDetailClient({
                 {cible === "DEPOT_CONSERVATION_EFFECTUE" && (
                   <div>
                     <label className={labelCls}>Date de dépôt à la Conservation *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       className={inputCls}
                       value={preuves.depotConservationLe}
-                      onChange={(e) => setPreuves({ ...preuves, depotConservationLe: e.target.value })}
+                      onChange={(v) => setPreuves({ ...preuves, depotConservationLe: v })}
                     />
                   </div>
                 )}
@@ -804,12 +872,11 @@ export function TransactionDetailClient({
                   <div className="space-y-2">
                     <div>
                       <label className={labelCls}>Date d'inscription au livre foncier *</label>
-                      <input
-                        type="date"
+                      <DateInput
                         className={inputCls}
                         value={preuves.mutationInscriteLe}
-                        onChange={(e) =>
-                          setPreuves({ ...preuves, mutationInscriteLe: e.target.value })
+                        onChange={(v) =>
+                          setPreuves({ ...preuves, mutationInscriteLe: v })
                         }
                       />
                     </div>
@@ -859,11 +926,10 @@ export function TransactionDetailClient({
                 {cible === "DOSSIER_REMIS_CLIENT" && (
                   <div>
                     <label className={labelCls}>Date de remise du dossier au client *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       className={inputCls}
                       value={preuves.remisAuClientLe}
-                      onChange={(e) => setPreuves({ ...preuves, remisAuClientLe: e.target.value })}
+                      onChange={(v) => setPreuves({ ...preuves, remisAuClientLe: v })}
                     />
                   </div>
                 )}
@@ -1638,7 +1704,11 @@ export function TransactionDetailClient({
             Chaque paiement indique son bénéficiaire réel. Les fonds clients, les
             sommes du notaire / de l&apos;administration et les débours ne sont
             jamais des honoraires du cabinet. Les paiements non rapprochés
-            bloquent la clôture.
+            bloquent la clôture.{" "}
+            <span className="text-emerald-700">
+              Les honoraires et débours du cabinet émettent automatiquement une
+              facture ; le règlement est comptabilisé et rapproché.
+            </span>
           </p>
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs text-gray-600">
@@ -1666,6 +1736,14 @@ export function TransactionDetailClient({
                       {PAIEMENT_NATURES.find((n) => n.code === p.nature)?.label || p.nature}
                     </span>
                     {p.libelle && <div className="text-xs text-gray-500">{p.libelle}</div>}
+                    {p.facture && (
+                      <a
+                        href={`/cabinet/factures/${p.factureId}`}
+                        className="mt-0.5 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700 hover:underline"
+                      >
+                        Facture {p.facture.numero}
+                      </a>
+                    )}
                   </td>
                   <td className="px-3 py-2 font-medium">{money(p.montant, p.devise)}</td>
                   <td className="px-3 py-2 text-xs">
@@ -1756,11 +1834,10 @@ export function TransactionDetailClient({
               </div>
               <div>
                 <label className={labelCls}>Date</label>
-                <input
-                  type="date"
+                <DateInput
                   className={inputCls}
                   value={newPay.date}
-                  onChange={(e) => setNewPay({ ...newPay, date: e.target.value })}
+                  onChange={(v) => setNewPay({ ...newPay, date: v })}
                 />
               </div>
               <div>
@@ -2113,13 +2190,13 @@ export function TransactionDetailClient({
                   </div>
                   <div>
                     <label className={labelCls}>Date d&apos;entrée</label>
-                    <input type="date" className={inputCls} value={elForm.dateEntree}
-                      onChange={(e) => setElForm({ ...elForm, dateEntree: e.target.value })} />
+                    <DateInput className={inputCls} value={elForm.dateEntree}
+                      onChange={(v) => setElForm({ ...elForm, dateEntree: v })} />
                   </div>
                   <div>
                     <label className={labelCls}>Date de sortie</label>
-                    <input type="date" className={inputCls} value={elForm.dateSortie}
-                      onChange={(e) => setElForm({ ...elForm, dateSortie: e.target.value })} />
+                    <DateInput className={inputCls} value={elForm.dateSortie}
+                      onChange={(v) => setElForm({ ...elForm, dateSortie: v })} />
                   </div>
                   <div>
                     <label className={labelCls}>Nombre de clés remises</label>
@@ -2308,11 +2385,10 @@ export function TransactionDetailClient({
               </div>
               <div>
                 <label className={labelCls}>Date</label>
-                <input
-                  type="date"
+                <DateInput
                   className={inputCls}
                   value={evt.date}
-                  onChange={(e) => setEvt({ ...evt, date: e.target.value })}
+                  onChange={(v) => setEvt({ ...evt, date: v })}
                 />
               </div>
               <div className="sm:col-span-2 flex gap-2">

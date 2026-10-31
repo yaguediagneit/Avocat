@@ -8,6 +8,12 @@ export interface SessionData {
   isClient?: boolean;
   clientId?: string;
   mfaVerified?: boolean;
+  /** Changement de mot de passe obligatoire (politique non conforme). */
+  passwordChangeRequired?: boolean;
+  /** Configuration TOTP obligatoire (aucun secret d'authentification). */
+  totpSetupRequired?: boolean;
+  /** Secret TOTP en cours d'activation (avant vérification du premier code). */
+  totpPendingSecret?: string;
   mfaPending?: {
     userId: string;
     email: string;
@@ -16,6 +22,8 @@ export interface SessionData {
     isClient: boolean;
     clientId?: string;
     mfaSecret?: string;
+    passwordChangeRequired?: boolean;
+    totpSetupRequired?: boolean;
   };
   mfaResetPending?: {
     userId: string;

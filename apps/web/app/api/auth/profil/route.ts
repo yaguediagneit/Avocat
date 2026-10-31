@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import { getSessionFromRequest } from "@/lib/session";
 import { getTenantPrisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { passwordSchema } from "@/lib/password-policy";
 import { logAudit } from "@/lib/audit";
 
 const profilUpdateSchema = z
@@ -14,7 +15,7 @@ const profilUpdateSchema = z
     specialite: z.string().optional(),
     email: z.string().email().optional(),
     currentPassword: z.string().optional(),
-    password: z.string().min(8).optional(),
+    password: passwordSchema.optional(),
   })
   .refine((d) => !d.password || Boolean(d.currentPassword), {
     message: "Le mot de passe actuel est requis pour changer de mot de passe.",
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
         email: user.email,
         role: user.role.nom,
         isClient: user.role.estClient,
+        mfaEnabled: user.mfaEnabled,
+        passwordChangeRequired: user.passwordChangeRequired,
       },
       { headers: res.headers }
     );
@@ -103,7 +106,10 @@ export async function PATCH(req: NextRequest) {
 
     const data: Record<string, unknown> = { ...rest };
     if (email) data.email = email;
-    if (password) data.passwordHash = await hashPassword(password);
+    if (password) {
+      data.passwordHash = await hashPassword(password);
+      data.passwordChangeRequired = false;
+    }
 
     const user = await prisma.user.update({
       where: { id: session.userId },
@@ -111,10 +117,10 @@ export async function PATCH(req: NextRequest) {
       include: { role: { select: { nom: true, estClient: true } } },
     });
 
-    if (email && email !== session.email) {
-      session.email = user.email;
-      await session.save();
-    }
+    const emailChanged = Boolean(email && email !== session.email);
+    if (emailChanged) session.email = user.email;
+    if (password) session.passwordChangeRequired = false;
+    if (emailChanged || password) await session.save();
 
     await logAudit(prisma, session.userId, "profil_updated", "user", user.id, {
       passwordChanged: Boolean(password),
@@ -130,6 +136,8 @@ export async function PATCH(req: NextRequest) {
         email: user.email,
         role: user.role.nom,
         isClient: user.role.estClient,
+        mfaEnabled: user.mfaEnabled,
+        passwordChangeRequired: user.passwordChangeRequired,
       },
       { headers: res.headers }
     );

@@ -71,7 +71,7 @@ type Employee = {
   createdAt: string;
   updatedAt: string;
   employee: { id: string; firstName: string; lastName: string };
-  contract: { id: string; reference: string; tauxGeneral: number; insurer: { id: string; nom: string } };
+  contract: { id: string; reference: string; tauxGeneral: number; dateDebut: string; dateFin: string; insurer: { id: string; nom: string } };
 };
 
 type Dependent = {
@@ -296,6 +296,8 @@ export function AssurancesClient({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedInsurerId, setSelectedInsurerId] = useState("");
+  const [selectedContractId, setSelectedContractId] = useState("");
+  const [expandedContractId, setExpandedContractId] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const { th: sortTh, sorted: sortRows } = useTableSort();
 
@@ -671,8 +673,8 @@ export function AssurancesClient({
         numeroAdherent: nextDependentNumber(ie),
         tauxParticulier: String(ie.tauxParticulier ?? ie.contract.tauxGeneral),
         plafondParticulier: ie.plafondIndividuel !== null && ie.plafondIndividuel !== undefined ? String(ie.plafondIndividuel) : "",
-        dateDebutCouverture: ie.dateAdhesion.slice(0, 10),
-        dateFinCouverture: ie.dateFinCouverture ? ie.dateFinCouverture.slice(0, 10) : "",
+        dateDebutCouverture: ie.contract.dateDebut.slice(0, 10),
+        dateFinCouverture: ie.contract.dateFin.slice(0, 10),
       });
     }
     setActiveForm("dependent");
@@ -711,11 +713,13 @@ export function AssurancesClient({
     cancel("insuredEmployee");
     setInsuredForm({
       ...defaultInsuredForm,
-      contractId: activeContract?.id ?? "",
+      contractId: selectedContract?.id ?? "",
       numeroAdherent: nextAdherentNumber(),
-      dateAdhesion: new Date().toISOString().slice(0, 10),
-      dateFinCouverture: activeContract ? activeContract.dateFin.slice(0, 10) : "",
-      tauxParticulier: activeContract ? String(activeContract.tauxGeneral) : "",
+      dateAdhesion: selectedContract
+        ? selectedContract.dateDebut.slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+      dateFinCouverture: selectedContract ? selectedContract.dateFin.slice(0, 10) : "",
+      tauxParticulier: selectedContract ? String(selectedContract.tauxGeneral) : "",
     });
     setActiveForm("insuredEmployee");
   }
@@ -784,6 +788,19 @@ export function AssurancesClient({
     return covering[0] ?? data.contracts.filter((c) => c.statut === "actif").sort((a, b) => b.dateDebut.localeCompare(a.dateDebut))[0] ?? null;
   }, [data.contracts]);
 
+  // Contrat affiché dans l'onglet Employés : sélection manuelle ou contrat en cours.
+  const selectedContract = selectedContractId
+    ? data.contracts.find((c) => c.id === selectedContractId) ?? null
+    : activeContract;
+
+  const contractEmployees = useMemo(
+    () =>
+      selectedContract
+        ? data.employees.filter((ie) => ie.contractId === selectedContract.id)
+        : data.employees,
+    [data.employees, selectedContract]
+  );
+
   const filteredInvoices = useMemo(() => {
     return data.invoices.filter((inv) => {
       const d = inv.dateSoins.slice(0, 10);
@@ -791,6 +808,137 @@ export function AssurancesClient({
 !startDate || d >= startDate) && (!endDate || d <= endDate);
     });
   }, [data.invoices, startDate, endDate]);
+
+  function dependentsOf(ie: Employee) {
+    return data.dependents.filter((d) =>
+      d.insuredEmployeeId ? d.insuredEmployeeId === ie.id : d.employee.id === ie.employee.id
+    );
+  }
+
+  function renderDependentsBlock(ie: Employee, deps: Dependent[]) {
+    return (
+      <>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-xs font-semibold text-cabinet-900">Ayants droit</div>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => startAddDependent(ie)}
+              className="rounded bg-emerald-500 px-2 py-1 text-[11px] font-medium text-white transition hover:bg-emerald-600"
+            >
+              + Ajouter
+            </button>
+          )}
+        </div>
+        <table className="w-full text-left text-xs">
+          <thead className="bg-cabinet-100/60 text-cabinet-900">
+            <tr>
+              {sortTh("dependents", "nom", "Prénom Nom", "px-3 py-2")}
+              {sortTh("dependents", "lien", "Lien", "px-3 py-2")}
+              {sortTh("dependents", "sexe", "Sexe", "px-3 py-2")}
+              {sortTh("dependents", "naissance", "Né(e)", "px-3 py-2")}
+              {sortTh("dependents", "statut", "Statut", "px-3 py-2")}
+              <th className="px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deps.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-500">Aucun ayant droit.</td></tr>
+            )}
+            <PaginatedRows colSpan={6}>
+            {sortRows("dependents", deps, {
+              nom: (d) => `${d.prenom} ${d.nom}`,
+              lien: (d) => d.lienFamilial,
+              sexe: (d) => d.sexe,
+              naissance: (d) => d.dateNaissance,
+              statut: (d) => d.statut,
+            }).map((d) => (
+              <tr key={d.id} className="border-b hover:bg-white/50">
+                <td className="px-3 py-2">{d.prenom} {d.nom}</td>
+                <td className="px-3 py-2">{d.lienFamilial}</td>
+                <td className="px-3 py-2">{d.sexe || "-"}</td>
+                <td className="px-3 py-2">{d.dateNaissance ? new Date(d.dateNaissance).toLocaleDateString("fr-FR") : "-"}</td>
+                <td className="px-3 py-2"><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">{d.statut}</span></td>
+                <td className="px-3 py-2">
+                  <ActionButton onClick={() => startEdit("dependent", d.id)} title="Modifier" icon="edit" color="blue" className="mr-1" />
+                  <ActionButton onClick={() => toggleStatut("dependent", d.id, d.statut)} title={d.statut === "actif" ? "Désactiver" : "Activer"} icon="power" color={d.statut === "actif" ? "red" : "emerald"} />
+                </td>
+              </tr>
+            ))}
+            </PaginatedRows>
+          </tbody>
+        </table>
+      </>
+    );
+  }
+
+  function renderInsuredTable(employees: Employee[], compact = false) {
+    const colSpan = compact ? 6 : 8;
+    const pad = compact ? "px-3 py-2" : "px-4 py-3";
+    return (
+      <table className={`w-full text-left ${compact ? "text-xs" : "min-w-[900px] text-sm"}`}>
+        <thead className={`${compact ? "bg-cabinet-100/60" : "bg-cabinet-100"} text-cabinet-900`}>
+          <tr>
+            {sortTh("employees", "employe", "Employé", pad)}
+            {!compact && sortTh("employees", "contrat", "Contrat", pad)}
+            {!compact && sortTh("employees", "assureur", "Assureur", pad)}
+            {sortTh("employees", "adherent", "N° adhérent", pad)}
+            {sortTh("employees", "adhesion", "Adhésion", pad)}
+            {sortTh("employees", "taux", "Taux", pad)}
+            {sortTh("employees", "statut", "Statut", pad)}
+            <th className={pad}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.length === 0 && (
+            <tr><td colSpan={colSpan} className="px-4 py-6 text-center text-gray-500">Aucun employé affilié.</td></tr>
+          )}
+          <PaginatedRows colSpan={colSpan}>
+          {sortRows("employees", employees, {
+            employe: (ie) => `${ie.employee.firstName} ${ie.employee.lastName}`,
+            contrat: (ie) => ie.contract.reference,
+            assureur: (ie) => ie.contract.insurer.nom,
+            adherent: (ie) => ie.numeroAdherent,
+            adhesion: (ie) => ie.dateAdhesion,
+            taux: (ie) => ie.tauxParticulier ?? ie.contract.tauxGeneral,
+            statut: (ie) => ie.statut,
+          }).map((ie) => {
+            const deps = dependentsOf(ie);
+            const selected = selectedEmployeeId === ie.id;
+            return (
+              <Fragment key={ie.id}>
+                <tr
+                  onClick={() => setSelectedEmployeeId(selected ? "" : ie.id)}
+                  className={`cursor-pointer border-b ${selected ? "bg-cabinet-100/70" : "hover:bg-gray-50"}`}
+                >
+                  <td className={`${pad} font-medium`}>{ie.employee.firstName} {ie.employee.lastName}</td>
+                  {!compact && <td className={pad}>{ie.contract.reference}</td>}
+                  {!compact && <td className={pad}>{ie.contract.insurer.nom}</td>}
+                  <td className={pad}>{ie.numeroAdherent}</td>
+                  <td className={pad}>{new Date(ie.dateAdhesion).toLocaleDateString("fr-FR")}</td>
+                  <td className={pad}>{ie.tauxParticulier ?? ie.contract.tauxGeneral}%</td>
+                  <td className={pad}><span className="rounded-full bg-gray-100 px-2 py-1 text-xs">{ie.statut}</span></td>
+                  <td className={pad} onClick={(e) => e.stopPropagation()}>
+                    <ActionButton onClick={() => window.open(`/cabinet/personnel/assurances/bilan-employe?employe=${ie.employee.id}`, "_blank")} title="Bilan employé (imprimer)" icon="print" color="cabinet" className="mr-1" />
+                    <ActionButton onClick={() => startEdit("insuredEmployee", ie.id)} title="Modifier" icon="edit" color="blue" className="mr-1" />
+                    <ActionButton onClick={() => toggleStatut("insuredEmployee", ie.id, ie.statut)} title={ie.statut === "actif" ? "Désactiver" : "Activer"} icon="power" color={ie.statut === "actif" ? "red" : "emerald"} />
+                  </td>
+                </tr>
+                {selected && (
+                <tr className="border-b bg-cabinet-50/50">
+                  <td colSpan={colSpan} className="px-4 py-3">
+                    {renderDependentsBlock(ie, deps)}
+                  </td>
+                </tr>
+                )}
+              </Fragment>
+            );
+          })}
+          </PaginatedRows>
+        </tbody>
+      </table>
+    );
+  }
 
   const dependentFormBlock = canWrite && activeForm === "dependent" && (
     <form
@@ -825,8 +973,8 @@ export function AssurancesClient({
             numeroAdherent: nextDependentNumber(ie),
             tauxParticulier: String(ie.tauxParticulier ?? ie.contract.tauxGeneral),
             plafondParticulier: ie.plafondIndividuel !== null && ie.plafondIndividuel !== undefined ? String(ie.plafondIndividuel) : "",
-            dateDebutCouverture: ie.dateAdhesion.slice(0, 10),
-            dateFinCouverture: ie.dateFinCouverture ? ie.dateFinCouverture.slice(0, 10) : "",
+            dateDebutCouverture: ie.contract.dateDebut.slice(0, 10),
+            dateFinCouverture: ie.contract.dateFin.slice(0, 10),
           });
         }}
       >
@@ -1091,15 +1239,22 @@ export function AssurancesClient({
                                 couverture: (c) => c.typeCouverture,
                                 taux: (c) => c.tauxGeneral,
                                 statut: (c) => c.statut,
-                              }).map((c) => (
-                                <tr key={c.id} className={`border-b ${c.statut === "inactif" ? "bg-gray-100/50 text-gray-500 line-through" : "hover:bg-white/50"}`}>
+                              }).map((c) => {
+                                const expanded = expandedContractId === c.id;
+                                const contractInsured = data.employees.filter((ie) => ie.contractId === c.id);
+                                return (
+                                <Fragment key={c.id}>
+                                <tr
+                                  onClick={() => { setExpandedContractId(expanded ? "" : c.id); setSelectedEmployeeId(""); }}
+                                  className={`cursor-pointer border-b ${c.statut === "inactif" ? "bg-gray-100/50 text-gray-500 line-through" : expanded ? "bg-cabinet-100/70" : "hover:bg-white/50"}`}
+                                >
                                   <td className="px-3 py-2 font-medium">{c.reference}</td>
                                   <td className="px-3 py-2">{new Date(c.dateDebut).toLocaleDateString("fr-FR")}</td>
                                   <td className="px-3 py-2">{new Date(c.dateFin).toLocaleDateString("fr-FR")}</td>
                                   <td className="px-3 py-2">{c.typeCouverture}</td>
                                   <td className="px-3 py-2">{c.tauxGeneral}%</td>
                                   <td className="px-3 py-2"><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">{c.statut}</span></td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                                     <ActionButton onClick={() => startEdit("contract", c.id)} title="Modifier" icon="edit" color="blue" className="mr-1" />
                                     {canManage && c.statut === "brouillon" && (
                                       <ActionButton onClick={() => validateContract(c.id)} title="Valider" icon="validate" color="emerald" className="mr-1" />
@@ -1148,7 +1303,17 @@ export function AssurancesClient({
                                     <ActionButton onClick={() => toggleStatut("contract", c.id, c.statut)} title={c.statut === "actif" ? "Désactiver" : "Activer"} icon="power" color={c.statut === "actif" ? "red" : "emerald"} />
                                   </td>
                                 </tr>
-                              ))}
+                                {expanded && (
+                                <tr className="border-b bg-cabinet-50/30">
+                                  <td colSpan={7} className="px-4 py-3">
+                                    <div className="mb-2 text-xs font-semibold text-cabinet-900">Employés assurés</div>
+                                    {renderInsuredTable(contractInsured, true)}
+                                  </td>
+                                </tr>
+                                )}
+                                </Fragment>
+                                );
+                              })}
                               </PaginatedRows>
                             </tbody>
                           </table>
@@ -1201,14 +1366,32 @@ export function AssurancesClient({
       )}
       {tab === "employes" && (
         <div className="space-y-6">
-          {(() => {
-            const c = activeContract;
-            if (!c) return null;
-            const ins = data.insurers.find((i) => i.id === c.insurerId);
-            return (
-              <div className="card p-4">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-                  <span className="font-semibold text-cabinet-900">Assureur actif : {c.insurer.nom}</span>
+          <div className="card space-y-3 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Contrat</label>
+              <select
+                className="input max-w-xl"
+                value={selectedContract?.id ?? ""}
+                onChange={(e) => {
+                  setSelectedContractId(e.target.value);
+                  setSelectedEmployeeId("");
+                }}
+              >
+                <option value="">— Tous les contrats —</option>
+                {data.contracts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.reference} — {c.insurer.nom} — du {new Date(c.dateDebut).toLocaleDateString("fr-FR")} au {new Date(c.dateFin).toLocaleDateString("fr-FR")}{c.statut !== "actif" ? ` (${c.statut})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {(() => {
+              const c = selectedContract;
+              if (!c) return null;
+              const ins = data.insurers.find((i) => i.id === c.insurerId);
+              return (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-gray-100 pt-3 text-sm">
+                  <span className="font-semibold text-cabinet-900">Assureur : {c.insurer.nom}</span>
                   {ins?.telephone && <span>Tél : {ins.telephone}</span>}
                   {ins?.email && <span>Email : {ins.email}</span>}
                   {ins?.managerNom && (
@@ -1218,9 +1401,9 @@ export function AssurancesClient({
                     Contrat : {c.reference} — {c.tauxGeneral}% — du {new Date(c.dateDebut).toLocaleDateString("fr-FR")} au {new Date(c.dateFin).toLocaleDateString("fr-FR")}
                   </span>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
           <div className="card overflow-x-auto">
             <div className="flex items-center justify-between p-4">
               <h3 className="font-semibold">Employés assurés</h3>
@@ -1231,120 +1414,7 @@ export function AssurancesClient({
                 + Ajouter
               </button>
             </div>
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-cabinet-100 text-cabinet-900">
-                <tr>
-                  {sortTh("employees", "employe", "Employé", "px-4 py-3")}
-                  {sortTh("employees", "contrat", "Contrat", "px-4 py-3")}
-                  {sortTh("employees", "assureur", "Assureur", "px-4 py-3")}
-                  {sortTh("employees", "adherent", "N° adhérent", "px-4 py-3")}
-                  {sortTh("employees", "adhesion", "Adhésion", "px-4 py-3")}
-                  {sortTh("employees", "taux", "Taux", "px-4 py-3")}
-                  {sortTh("employees", "statut", "Statut", "px-4 py-3")}
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.employees.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">Aucun employé assuré.</td></tr>
-                )}
-                <PaginatedRows colSpan={8}>
-                {sortRows("employees", data.employees, {
-                  employe: (ie) => `${ie.employee.firstName} ${ie.employee.lastName}`,
-                  contrat: (ie) => ie.contract.reference,
-                  assureur: (ie) => ie.contract.insurer.nom,
-                  adherent: (ie) => ie.numeroAdherent,
-                  adhesion: (ie) => ie.dateAdhesion,
-                  taux: (ie) => ie.tauxParticulier ?? ie.contract.tauxGeneral,
-                  statut: (ie) => ie.statut,
-                }).map((ie) => {
-                  const deps = data.dependents.filter((d) =>
-                    d.insuredEmployeeId
-                      ? d.insuredEmployeeId === ie.id
-                      : d.employee.id === ie.employee.id
-                  );
-                  const selected = selectedEmployeeId === ie.id;
-                  return (
-                    <Fragment key={ie.id}>
-                      <tr
-                        onClick={() => setSelectedEmployeeId(selected ? "" : ie.id)}
-                        className={`cursor-pointer border-b ${selected ? "bg-cabinet-100/70" : "hover:bg-gray-50"}`}
-                      >
-                        <td className="px-4 py-3 font-medium">{ie.employee.firstName} {ie.employee.lastName}</td>
-                        <td className="px-4 py-3">{ie.contract.reference}</td>
-                        <td className="px-4 py-3">{ie.contract.insurer.nom}</td>
-                        <td className="px-4 py-3">{ie.numeroAdherent}</td>
-                        <td className="px-4 py-3">{new Date(ie.dateAdhesion).toLocaleDateString("fr-FR")}</td>
-                        <td className="px-4 py-3">{ie.tauxParticulier ?? ie.contract.tauxGeneral}%</td>
-                        <td className="px-4 py-3"><span className="rounded-full bg-gray-100 px-2 py-1 text-xs">{ie.statut}</span></td>
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <ActionButton onClick={() => window.open(`/cabinet/personnel/assurances/bilan-employe?employe=${ie.employee.id}`, "_blank")} title="Bilan employé (imprimer)" icon="print" color="cabinet" className="mr-1" />
-                          <ActionButton onClick={() => startEdit("insuredEmployee", ie.id)} title="Modifier" icon="edit" color="blue" className="mr-1" />
-                          <ActionButton onClick={() => toggleStatut("insuredEmployee", ie.id, ie.statut)} title={ie.statut === "actif" ? "Désactiver" : "Activer"} icon="power" color={ie.statut === "actif" ? "red" : "emerald"} />
-                        </td>
-                      </tr>
-                      {selected && (
-                      <tr className="border-b bg-cabinet-50/50">
-                        <td colSpan={8} className="px-4 py-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="text-xs font-semibold text-cabinet-900">Ayants droit</div>
-                            {canWrite && (
-                              <button
-                                type="button"
-                                onClick={() => startAddDependent(ie)}
-                                className="rounded bg-emerald-500 px-2 py-1 text-[11px] font-medium text-white transition hover:bg-emerald-600"
-                              >
-                                + Ajouter
-                              </button>
-                            )}
-                          </div>
-                          <table className="w-full text-left text-xs">
-                            <thead className="bg-cabinet-100/60 text-cabinet-900">
-                              <tr>
-                                {sortTh("dependents", "nom", "Prénom Nom", "px-3 py-2")}
-                                {sortTh("dependents", "lien", "Lien", "px-3 py-2")}
-                                {sortTh("dependents", "sexe", "Sexe", "px-3 py-2")}
-                                {sortTh("dependents", "naissance", "Né(e)", "px-3 py-2")}
-                                {sortTh("dependents", "statut", "Statut", "px-3 py-2")}
-                                <th className="px-3 py-2">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {deps.length === 0 && (
-                                <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-500">Aucun ayant droit.</td></tr>
-                              )}
-                              <PaginatedRows colSpan={6}>
-                              {sortRows("dependents", deps, {
-                                nom: (d) => `${d.prenom} ${d.nom}`,
-                                lien: (d) => d.lienFamilial,
-                                sexe: (d) => d.sexe,
-                                naissance: (d) => d.dateNaissance,
-                                statut: (d) => d.statut,
-                              }).map((d) => (
-                                <tr key={d.id} className="border-b hover:bg-white/50">
-                                  <td className="px-3 py-2">{d.prenom} {d.nom}</td>
-                                  <td className="px-3 py-2">{d.lienFamilial}</td>
-                                  <td className="px-3 py-2">{d.sexe || "-"}</td>
-                                  <td className="px-3 py-2">{d.dateNaissance ? new Date(d.dateNaissance).toLocaleDateString("fr-FR") : "-"}</td>
-                                  <td className="px-3 py-2"><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">{d.statut}</span></td>
-                                  <td className="px-3 py-2">
-                                    <ActionButton onClick={() => startEdit("dependent", d.id)} title="Modifier" icon="edit" color="blue" className="mr-1" />
-                                    <ActionButton onClick={() => toggleStatut("dependent", d.id, d.statut)} title={d.statut === "actif" ? "Désactiver" : "Activer"} icon="power" color={d.statut === "actif" ? "red" : "emerald"} />
-                                  </td>
-                                </tr>
-                              ))}
-                              </PaginatedRows>
-                            </tbody>
-                          </table>
-                        </td>
-                      </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-                </PaginatedRows>
-              </tbody>
-            </table>
+            {renderInsuredTable(contractEmployees)}
           </div>
 
           {canWrite && activeForm === "insuredEmployee" && (
@@ -1368,8 +1438,8 @@ export function AssurancesClient({
                 <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
               ))}
             </select>
-            <select className="input cursor-not-allowed bg-gray-100 text-gray-500" title="Contrat d'assurance actif" value={insuredForm.contractId} disabled>
-              <option value="">{activeContract ? "Contrat actif" : "Aucun contrat actif"}</option>
+            <select className="input cursor-not-allowed bg-gray-100 text-gray-500" title="Contrat d'assurance sélectionné" value={insuredForm.contractId} disabled>
+              <option value="">{selectedContract ? "Contrat sélectionné" : "Aucun contrat"}</option>
               {data.contracts.map((c) => (
                 <option key={c.id} value={c.id}>{c.reference} ({c.insurer.nom})</option>
               ))}

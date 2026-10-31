@@ -67,10 +67,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (result.requiresMfa) {
-      try {
-        await createAndSendMfaCode(tenantPrisma, result.email, "login");
-      } catch (e) {
-        console.error("[auth/login] send MFA email failed", e);
+      const mfaMethod = result.mfaSecret ? "totp" : "email";
+      if (mfaMethod === "email") {
+        try {
+          await createAndSendMfaCode(tenantPrisma, result.email, "login");
+        } catch (e) {
+          console.error("[auth/login] send MFA email failed", e);
+        }
       }
       session.mfaPending = {
         userId: result.userId,
@@ -79,6 +82,8 @@ export async function POST(req: NextRequest) {
         tenantId: result.tenantId,
         isClient: result.isClient,
         clientId: result.clientId,
+        passwordChangeRequired: result.passwordChangeRequired,
+        totpSetupRequired: result.totpRequired,
       };
       try {
         await session.save();
@@ -90,7 +95,7 @@ export async function POST(req: NextRequest) {
         );
       }
       return NextResponse.json(
-        { requiresMfa: true, email: result.email, mfaMethod: "email" },
+        { requiresMfa: true, email: result.email, mfaMethod },
         { headers: res.headers }
       );
     }
@@ -102,6 +107,8 @@ export async function POST(req: NextRequest) {
     session.isClient = result.isClient;
     session.clientId = result.clientId;
     session.mfaVerified = true;
+    session.passwordChangeRequired = result.passwordChangeRequired;
+    session.totpSetupRequired = result.totpRequired;
 
     try {
       await session.save();
@@ -119,6 +126,8 @@ export async function POST(req: NextRequest) {
         userId: result.userId,
         role: result.role,
         isClient: result.isClient,
+        passwordChangeRequired: result.passwordChangeRequired,
+        totpSetupRequired: result.totpRequired,
       },
       { headers: res.headers }
     );

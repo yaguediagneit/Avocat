@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSessionFromRequest } from "@/lib/session";
 import { getTenantPrisma } from "@/lib/prisma";
 import { MfaRateLimitError, verifyMfaCode } from "@/lib/mfa-email";
+import { verifyTotp } from "@/lib/auth";
 import { enforceAuthRateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const schema = z.object({
@@ -37,7 +38,17 @@ export async function POST(req: NextRequest) {
     const tenantPrisma = await getTenantPrisma(pending.tenantId);
     let valid: boolean;
     try {
-      valid = await verifyMfaCode(tenantPrisma, pending.email, parsed.data.token, "login");
+      const user = await tenantPrisma.user.findUnique({
+        where: { id: pending.userId },
+        select: { mfaSecret: true, mfaEnabled: true },
+      });
+      // Si un secret TOTP est configuré (Google/Microsoft Authenticator), le
+      // code est vérifié localement ; sinon on retombe sur le code e-mail.
+      if (user?.mfaEnabled && user.mfaSecret) {
+        valid = verifyTotp(user.mfaSecret, parsed.data.token);
+      } else {
+        valid = await verifyMfaCode(tenantPrisma, pending.email, parsed.data.token, "login");
+      }
     } catch (e) {
       if (e instanceof MfaRateLimitError) return tooManyRequests({ ok: false, remaining: 0, retryAfter: e.retryAfter });
       throw e;
@@ -53,6 +64,8 @@ export async function POST(req: NextRequest) {
     session.isClient = pending.isClient;
     session.clientId = pending.clientId;
     session.mfaVerified = true;
+    session.passwordChangeRequired = pending.passwordChangeRequired || false;
+    session.totpSetupRequired = pending.totpSetupRequired || false;
     delete session.mfaPending;
 
     await session.save();
@@ -63,6 +76,8 @@ export async function POST(req: NextRequest) {
         userId: pending.userId,
         role: pending.role,
         isClient: pending.isClient,
+        passwordChangeRequired: session.passwordChangeRequired,
+        totpSetupRequired: session.totpSetupRequired,
       },
       { headers: res.headers }
     );

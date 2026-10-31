@@ -6,6 +6,13 @@ import { PaginatedRows } from "@/components/pagination";
 import { SortableTh } from "@/components/sortable-th";
 import { getSortSpec, sortRows } from "@/lib/table-sort";
 
+const MARITAL_LABELS: Record<string, string> = {
+  single: "Célibataire",
+  married: "Marié(e)",
+  divorced: "Divorcé(e)",
+  widowed: "Veuf/Veuve",
+};
+
 export default async function EmployeeDetailPage({
   params,
   searchParams,
@@ -21,6 +28,10 @@ export default async function EmployeeDetailPage({
       payrolls: { orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }] },
       contracts: { orderBy: { createdAt: "desc" } },
       histories: { orderBy: { changedAt: "desc" } },
+      insuranceDependents: {
+        where: { lienFamilial: "conjoint" },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!employee) notFound();
@@ -47,6 +58,32 @@ export default async function EmployeeDetailPage({
         <div><span className="text-gray-500">CNSS</span><p>{employee.cnssNumber || "—"}</p></div>
         <div><span className="text-gray-500">IPRES</span><p>{employee.ipresNumber || "—"}</p></div>
         <div><span className="text-gray-500">Parts fiscales</span><p>{employee.taxShares}</p></div>
+        <div><span className="text-gray-500">Sexe</span><p>{employee.sexe === "F" ? "Féminin" : employee.sexe === "M" ? "Masculin" : "—"}</p></div>
+        <div><span className="text-gray-500">Date de naissance</span><p>{employee.dateNaissance ? new Date(employee.dateNaissance).toLocaleDateString("fr-FR") : "—"}</p></div>
+        <div>
+          <span className="text-gray-500">Situation familiale</span>
+          <p>{MARITAL_LABELS[employee.maritalStatus] ?? employee.maritalStatus}</p>
+        </div>
+        {employee.maritalStatus === "married" && (
+          <>
+            <div>
+              <span className="text-gray-500">
+                {employee.sexe === "F" ? "Nombre d'époux" : "Nombre d'épouses"}
+              </span>
+              <p>{employee.nbSpouses}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">
+                {employee.sexe === "F" ? "Ayant droit (époux)" : "Ayants droit (épouses)"}
+              </span>
+              <p>
+                {employee.insuranceDependents.length > 0
+                  ? employee.insuranceDependents.map((d) => `${d.prenom} ${d.nom}`).join(", ")
+                  : "—"}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {employee.histories && employee.histories.length > 0 && (

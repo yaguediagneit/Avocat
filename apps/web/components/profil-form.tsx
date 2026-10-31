@@ -85,8 +85,16 @@ export function ProfilForm({ initialUser }: ProfilFormProps) {
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (pwd.password.length < 8) {
-      setPwdError("Le nouveau mot de passe doit faire au moins 8 caractères.");
+    if (
+      pwd.password.length < 10 ||
+      !/[a-z]/.test(pwd.password) ||
+      !/[A-Z]/.test(pwd.password) ||
+      !/[0-9]/.test(pwd.password) ||
+      !/[^A-Za-z0-9]/.test(pwd.password)
+    ) {
+      setPwdError(
+        "Le nouveau mot de passe doit contenir au moins 10 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial."
+      );
       return;
     }
     if (pwd.password !== pwd.confirmPassword) {
@@ -240,8 +248,12 @@ export function ProfilForm({ initialUser }: ProfilFormProps) {
               onChange={(e) => setPwd((p) => ({ ...p, password: e.target.value }))}
               className="input"
               required
-              minLength={8}
+              minLength={10}
             />
+            <p className="mt-1 text-xs text-gray-500">
+              10 caractères minimum, avec une majuscule, une minuscule, un
+              chiffre et un caractère spécial.
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Confirmer le nouveau mot de passe</label>

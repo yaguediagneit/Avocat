@@ -1,6 +1,7 @@
 import argon2 from "argon2";
 import * as speakeasy from "speakeasy";
 import { publicPrisma, getTenantPrisma } from "./prisma";
+import { isPasswordCompliant } from "./password-policy";
 
 export interface VerifyResult {
   userId: string;
@@ -11,6 +12,9 @@ export interface VerifyResult {
   clientId?: string;
   requiresMfa: boolean;
   mfaSecret?: string;
+  passwordChangeRequired: boolean;
+  /** Vrai si aucun secret TOTP n'est configuré (2FA à activer). */
+  totpRequired: boolean;
 }
 
 export async function resolveTenant(identifier?: string): Promise<{ id: string } | null> {
@@ -71,6 +75,12 @@ export async function verifyUser(
     return null;
   }
 
+  // Le mot de passe saisi est vérifié contre la politique en clair : s'il est
+  // non conforme (ancien mot de passe faible) ou marqué en base, le changement
+  // est exigé avant l'accès à l'application.
+  const passwordChangeRequired =
+    user.passwordChangeRequired || !isPasswordCompliant(password);
+
   return {
     userId: user.id,
     email: user.email,
@@ -80,6 +90,8 @@ export async function verifyUser(
     clientId: user.clientId || undefined,
     requiresMfa: user.mfaEnabled,
     mfaSecret: user.mfaSecret || undefined,
+    passwordChangeRequired,
+    totpRequired: !user.mfaSecret,
   };
 }
 

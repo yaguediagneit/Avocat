@@ -4,6 +4,7 @@ import { guardSuperAdmin, sanitizeTenant, TENANT_PUBLIC_SELECT } from "@/lib/sup
 import { createTenantWithAdmin } from "@/lib/tenant-manager";
 import { normalizeDomain } from "@/lib/tenant-url";
 import { z } from "zod";
+import { passwordSchema } from "@/lib/password-policy";
 
 const createSchema = z.object({
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/),
@@ -21,7 +22,7 @@ const createSchema = z.object({
     email: z.string().email(),
     prenom: z.string().min(1).max(100),
     nom: z.string().min(1).max(100),
-    password: z.string().min(8).max(128),
+    password: passwordSchema,
   }),
 });
 

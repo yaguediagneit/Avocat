@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getPresignedDownloadUrl } from "@/lib/s3";
 import { ProfilForm } from "@/components/profil-form";
+import { TotpSetup } from "@/components/totp-setup";
 import { SignatureUpload } from "./signature-upload";
 import { PaginatedUl } from "@/components/pagination";
 
@@ -20,6 +21,7 @@ export default async function ProfilPage() {
       titre: true,
       specialite: true,
       signatureKey: true,
+      mfaEnabled: true,
       role: { select: { nom: true, estClient: true } },
     },
   });
@@ -65,6 +67,11 @@ export default async function ProfilPage() {
           isClient: user.role?.estClient || false,
         }}
       />
+
+      <section className="card space-y-4">
+        <h2 className="text-lg font-semibold">Authentification à deux facteurs</h2>
+        <TotpSetup initialEnabled={user.mfaEnabled} />
+      </section>
 
       <section className="card space-y-4">
         <h2 className="text-lg font-semibold">Ma signature</h2>

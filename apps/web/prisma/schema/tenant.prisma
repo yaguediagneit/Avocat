@@ -20,6 +20,9 @@ model User {
   clientId        String?
   mfaSecret       String?
   mfaEnabled      Boolean   @default(false)
+  /// L'utilisateur doit changer de mot de passe à la prochaine connexion
+  /// (mot de passe non conforme à la politique ou imposé par un admin).
+  passwordChangeRequired Boolean @default(false) @map("password_change_required")
   actif           Boolean   @default(true)
   derniereConnexion DateTime?
   derniereIp      String?
@@ -27,6 +30,7 @@ model User {
   calendarToken   String?   @unique @map("calendar_token")
   createdAt       DateTime  @default(now())
   role            Role      @relation(fields: [roleId], references: [id])
+  invitations     UserInvitation[]
   evenementsCrees Evenement[] @relation("EvenementCreateur")
   contractsToApprove EmploymentContract[] @relation("ContractApprobateur")
 
@@ -44,6 +48,21 @@ model Role {
   users                   User[]
 
   @@map("roles")
+}
+
+/// Lien d'invitation à usage unique envoyé à un nouvel utilisateur pour
+/// qu'il définisse lui-même son mot de passe (token stocké haché sha256).
+model UserInvitation {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("user_invitations")
 }
 
 model PermissionDossier {
@@ -453,6 +472,7 @@ model Facture {
   tvaRate      TvaRate?   @relation(fields: [tvaRateId], references: [id])
   paiements    Paiement[]
   lines        FactureLine[]
+  transactionPaiements TransactionPaiement[]
   accountingEntryId String? @map("accounting_entry_id")
   createdAt    DateTime   @default(now())
 
@@ -910,8 +930,13 @@ model Employee {
   bankAccount         String? @map("bank_account")
   email         String?
   phone         String?
+  /// "M" | "F" — pilote le conjoint : femme ⇒ 1 époux, homme ⇒ jusqu'à 4 épouses.
+  sexe          String?  @map("sexe")
+  dateNaissance DateTime? @map("date_naissance")
   maritalStatus String   @map("marital_status")
   nbChildren    Int      @default(0) @map("nb_children")
+  /// Nombre de conjoints (époux si sexe = "F", épouses si sexe = "M") — chaque conjoint ajoute 0,5 part fiscale.
+  nbSpouses     Int      @default(0) @map("nb_spouses")
   taxShares     Float    @default(1) @map("tax_shares")
   regime        String   @default("general") @map("regime")
   isActive      Boolean  @default(true) @map("is_active")
@@ -2604,6 +2629,11 @@ model TransactionPaiement {
   rapproche     Boolean     @default(false)
   formaliteId   String?
   formalite     TransactionFormalite? @relation(fields: [formaliteId], references: [id])
+  /// Facture d'honoraires générée automatiquement pour les natures
+  /// cabinet (HONORAIRES_CABINET, DEBOURS_CABINET) — l'écriture
+  /// comptable provient du Paiement de la facture.
+  factureId     String?
+  facture       Facture?    @relation(fields: [factureId], references: [id])
   echeances     TransactionEcheance[]
   creePar       String?
   createdAt     DateTime    @default(now())

@@ -271,6 +271,20 @@ export async function POST(req: NextRequest) {
           dateFinCouverture: parsed.data.dateFinCouverture ? new Date(parsed.data.dateFinCouverture) : undefined,
         },
       });
+      // Les conjoints déclarés sur la fiche employé deviennent ayants droit
+      // de cette couverture, avec les dates du contrat par défaut.
+      const contract = await ctx.prisma.insuranceContract.findUnique({
+        where: { id: parsed.data.contractId },
+        select: { dateDebut: true, dateFin: true },
+      });
+      await ctx.prisma.employeeDependent.updateMany({
+        where: { employeeId: parsed.data.employeeId, lienFamilial: "conjoint", insuredEmployeeId: null },
+        data: {
+          insuredEmployeeId: ie.id,
+          dateDebutCouverture: contract?.dateDebut ?? ie.dateAdhesion,
+          dateFinCouverture: contract?.dateFin,
+        },
+      });
       return NextResponse.json(ie, { status: 201 });
     }
 

@@ -67,6 +67,9 @@ async function route(req: NextRequest): Promise<NextResponse> {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/verify-mfa") ||
+    pathname.startsWith("/changer-mot-de-passe") ||
+    pathname.startsWith("/configurer-2fa") ||
+    pathname.startsWith("/invitation") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon")
   ) {
@@ -88,6 +91,36 @@ async function route(req: NextRequest): Promise<NextResponse> {
   }
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
+
+  // Changement de mot de passe obligatoire : l'utilisateur connecté ne peut
+  // plus accéder qu'à la page de changement et aux routes d'authentification.
+  if (session.userId && session.passwordChangeRequired) {
+    if (pathname.startsWith("/api/")) {
+      if (!pathname.startsWith("/api/auth")) {
+        return NextResponse.json(
+          { error: "Changement de mot de passe requis" },
+          { status: 403 }
+        );
+      }
+      return res;
+    }
+    return NextResponse.redirect(new URL("/changer-mot-de-passe", req.url));
+  }
+
+  // Activation 2FA obligatoire : sans secret TOTP, seules la page de
+  // configuration et les routes d'authentification restent accessibles.
+  if (session.userId && session.mfaVerified && session.totpSetupRequired) {
+    if (pathname.startsWith("/api/")) {
+      if (!pathname.startsWith("/api/auth")) {
+        return NextResponse.json(
+          { error: "Activation de la double authentification requise" },
+          { status: 403 }
+        );
+      }
+      return res;
+    }
+    return NextResponse.redirect(new URL("/configurer-2fa", req.url));
+  }
 
   // Flux iCal public (abonnement Google/Outlook)
   if (pathname === "/api/calendrier/ical" && req.method === "GET") {

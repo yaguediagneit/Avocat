@@ -133,6 +133,10 @@ export function TransactionWizard({
   const [bienLibre, setBienLibre] = useState({ designation: "", nature: "IMMEUBLE", adresse: "", commune: "", typeDroit: "", referenceDroit: "", superficie: "" });
 
   const dossier = dossiers.find((d) => d.id === form.dossierId);
+  const prixTotalCalcule = [
+    form.netVendeur, form.honorairesAgence, form.tva,
+    form.taxesMunicipales, form.fraisNotaire,
+  ].reduce((s, v) => s + (parseInt(v, 10) || 0), 0);
 
   // Quand le type change : proposer les rôles de parties attendus.
   function selectType(id: string) {
@@ -316,7 +320,11 @@ export function TransactionWizard({
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
             Choisissez le type de transaction — la check-list de pièces, le
-            circuit et les modèles de contrat en dépendent.
+            circuit et les modèles de contrat en dépendent.{" "}
+            <span className="font-medium text-cabinet-700">
+              Double-cliquez sur un type pour continuer directement vers le
+              choix du dossier.
+            </span>
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {types.map((t) => (
@@ -324,6 +332,10 @@ export function TransactionWizard({
                 key={t.id}
                 type="button"
                 onClick={() => selectType(t.id)}
+                onDoubleClick={() => {
+                  selectType(t.id);
+                  setStep(1);
+                }}
                 className={`rounded-lg border p-4 text-left transition ${
                   typeId === t.id
                     ? "border-cabinet-700 bg-cabinet-50 ring-2 ring-cabinet-200"
@@ -633,10 +645,7 @@ export function TransactionWizard({
                 <div>
                   <label className={labelCls}>Prix total de vente (calculé)</label>
                   <input className={`${inputCls} bg-gray-50 font-semibold`} readOnly
-                    value={[
-                      form.netVendeur, form.honorairesAgence, form.tva,
-                      form.taxesMunicipales, form.fraisNotaire,
-                    ].reduce((s, v) => s + (parseInt(v, 10) || 0), 0) || ""}
+                    value={prixTotalCalcule || ""}
                     placeholder="—" />
                 </div>
               </div>
@@ -646,7 +655,8 @@ export function TransactionWizard({
               </p>
               <div className="mt-3 max-w-xs">
                 <label className={labelCls}>Prix de vente (global, si pas de décomposition)</label>
-                <input className={inputCls} type="number" value={form.prix}
+                <input className={inputCls} type="number"
+                  value={form.prix !== "" ? form.prix : prixTotalCalcule || ""}
                   onChange={(e) => setForm({ ...form, prix: e.target.value })} />
               </div>
             </div>

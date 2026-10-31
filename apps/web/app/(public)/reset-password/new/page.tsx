@@ -19,8 +19,16 @@ function ResetNewContent() {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caractères.");
+    if (
+      password.length < 10 ||
+      !/[a-z]/.test(password) ||
+      !/[A-Z]/.test(password) ||
+      !/[0-9]/.test(password) ||
+      !/[^A-Za-z0-9]/.test(password)
+    ) {
+      setError(
+        "Le mot de passe doit contenir au moins 10 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial."
+      );
       return;
     }
     if (password !== confirmPassword) {
@@ -101,9 +109,13 @@ function ResetNewContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="input w-full bg-cabinet-900/50 text-white placeholder:text-cabinet-300/50"
                 placeholder="••••••••"
-                minLength={8}
+                minLength={10}
                 required
               />
+              <p className="mt-1 text-xs text-cabinet-300/60">
+                10 caractères minimum, avec une majuscule, une minuscule, un
+                chiffre et un caractère spécial.
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">
@@ -115,7 +127,7 @@ function ResetNewContent() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input w-full bg-cabinet-900/50 text-white placeholder:text-cabinet-300/50"
                 placeholder="••••••••"
-                minLength={8}
+                minLength={10}
                 required
               />
             </div>

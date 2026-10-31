@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { logAudit } from "@/lib/audit";
+import { computeTaxShares } from "@/lib/payroll";
+
+const spouseSchema = z.object({
+  prenom: z.string().min(1),
+  nom: z.string().optional(),
+});
 
 const employeeUpdateSchema = z.object({
   employeeCode: z.string().min(1).optional(),
@@ -25,17 +31,20 @@ const employeeUpdateSchema = z.object({
   bankAccount: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
+  sexe: z.enum(["M", "F"]).optional(),
+  dateNaissance: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal("")
+    .transform(() => null)
+    ),
   maritalStatus: z.enum(["single", "married", "divorced", "widowed"]).optional(),
   nbChildren: z.coerce.number().int().min(0).optional(),
+  nbSpouses: z.coerce.number().int().min(0).max(4).optional(),
+  spouses: z.array(spouseSchema).max(4).optional(),
   isActive: z.boolean().optional(),
 });
-
-function computeTaxShares(maritalStatus: string, nbChildren: number) {
-  let shares = 1.0;
-  if (maritalStatus === "married") shares += 0.5;
-  shares += nbChildren / 2;
-  return Math.min(shares, 5.0);
-}
 
 export async function GET(
   req: NextRequest,
@@ -80,11 +89,11 @@ export async function PATCH(
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { hireDate, nbChildren, contractEndDate, ...data } = parsed.data;
+    const { hireDate, nbChildren, nbSpouses, spouses, contractEndDate, dateNaissance, ...data } = parsed.data;
 
     const existing = await ctx.prisma.employee.findUnique({
       where: { id: params.id },
-      select: { maritalStatus: true, nbChildren: true, position: true, regime: true },
+      select: { sexe: true, maritalStatus: true, nbChildren: true, nbSpouses: true, position: true, regime: true, lastName: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Employé non trouvé" }, { status: 404 });
@@ -92,6 +101,16 @@ export async function PATCH(
 
     const marital = data.maritalStatus ?? existing.maritalStatus;
     const children = nbChildren ?? existing.nbChildren;
+    const sexe = data.sexe ?? existing.sexe;
+    // Femme mariée ⇒ 1 époux ; homme marié ⇒ jusqu'à 4 épouses.
+    const maxSpouses = sexe === "F" ? 1 : 4;
+    const spouseCount =
+      marital === "married" ? Math.min(maxSpouses, Math.max(1, nbSpouses ?? existing.nbSpouses ?? 1)) : 0;
+    const touchesFamily =
+      data.sexe !== undefined ||
+      data.maritalStatus !== undefined ||
+      nbSpouses !== undefined ||
+      spouses !== undefined;
 
     const newPosition = data.position === "" ? null : data.position ?? existing.position;
     const newRegime = data.regime ?? existing.regime;
@@ -110,10 +129,44 @@ export async function PATCH(
               : contractEndDate
                 ? new Date(contractEndDate)
                 : undefined,
+          dateNaissance:
+            dateNaissance === null
+              ? null
+              : dateNaissance
+                ? new Date(dateNaissance)
+                : undefined,
           nbChildren: children,
-          taxShares: computeTaxShares(marital, children),
+          nbSpouses: spouseCount,
+          taxShares: computeTaxShares(marital, children, spouseCount),
         },
       });
+
+      // Réconcilie les ayants droit "conjoint" non encore rattachés à une
+      // couverture (ceux rattachés restent gérés dans le module Assurances).
+      if (touchesFamily) {
+        await tx.employeeDependent.deleteMany({
+          where: { employeeId: params.id, lienFamilial: "conjoint", insuredEmployeeId: null },
+        });
+        if (spouseCount > 0) {
+          const coverage = await tx.insuredEmployee.findFirst({
+            where: { employeeId: params.id, statut: "actif" },
+            orderBy: { dateAdhesion: "desc" },
+            select: { id: true },
+          });
+          await tx.employeeDependent.createMany({
+            data: Array.from({ length: spouseCount }, (_, i) => ({
+              employeeId: params.id,
+              insuredEmployeeId: coverage?.id,
+              prenom:
+                spouses?.[i]?.prenom?.trim() ||
+                (sexe === "F" ? "Époux" : `Épouse ${i + 1}`),
+              nom: spouses?.[i]?.nom?.trim() || existing.lastName,
+              sexe: sexe === "F" ? "M" : "F",
+              lienFamilial: "conjoint",
+            })),
+          });
+        }
+      }
 
       const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
       if (newPosition !== existing.position) {

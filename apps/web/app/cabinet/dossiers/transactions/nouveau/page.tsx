@@ -3,6 +3,22 @@ import { hasPermission } from "@/lib/rbac";
 import { redirect } from "next/navigation";
 import { TransactionWizard } from "./transaction-wizard";
 
+/// Responsable interne : avocats, spécialistes, conseillers juridiques,
+/// directeur ou associés.
+function isResponsableInterneRole(roleName: string) {
+  const r = roleName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+  return (
+    r.includes("avocat") ||
+    r.includes("specialiste") ||
+    r.includes("conseiller") ||
+    r.includes("directeur") ||
+    r.includes("associe")
+  );
+}
+
 export default async function NouvelleTransactionPage({
   searchParams,
 }: {
@@ -82,7 +98,9 @@ export default async function NouvelleTransactionPage({
         dossiers={JSON.parse(JSON.stringify(dossiers))}
         biens={JSON.parse(JSON.stringify(biens))}
         demandeurs={JSON.parse(JSON.stringify(demandeurs))}
-        users={JSON.parse(JSON.stringify(users))}
+        users={JSON.parse(
+          JSON.stringify(users.filter((u) => isResponsableInterneRole(u.role?.nom ?? "")))
+        )}
         initial={initial}
       />
     </div>

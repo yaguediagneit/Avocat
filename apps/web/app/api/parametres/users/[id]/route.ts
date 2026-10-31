@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { logAudit } from "@/lib/audit";
-import { hashPassword } from "@/lib/auth";
+
 import { uploadDocument } from "@/lib/s3";
 
 const userUpdateSchema = z.object({
@@ -13,7 +13,6 @@ const userUpdateSchema = z.object({
   titre: z.string().optional(),
   specialite: z.string().optional(),
   actif: z.boolean().optional(),
-  password: z.string().min(8).optional(),
   signature: z.string().optional(),
 });
 
@@ -61,10 +60,6 @@ export async function PATCH(
 
     const data: any = { ...parsed.data };
     delete data.signature;
-    if (parsed.data.password) {
-      data.passwordHash = await hashPassword(parsed.data.password);
-      delete data.password;
-    }
 
     const signatureKey = await saveSignature(params.id, parsed.data.signature);
     if (signatureKey) {
