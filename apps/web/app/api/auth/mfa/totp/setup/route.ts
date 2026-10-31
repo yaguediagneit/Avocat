@@ -12,7 +12,7 @@ import { getSessionFromRequest } from "@/lib/session";
 export async function POST(req: NextRequest) {
   const ctx = await guard(req);
   if (ctx instanceof NextResponse) return ctx;
-  const res = ctx.res;
+  const res = new NextResponse();
 
   try {
     const secret = speakeasy.generateSecret({

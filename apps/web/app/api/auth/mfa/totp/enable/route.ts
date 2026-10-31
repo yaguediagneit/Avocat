@@ -14,7 +14,7 @@ const schema = z.object({ token: z.string().length(6) });
 export async function POST(req: NextRequest) {
   const ctx = await guard(req);
   if (ctx instanceof NextResponse) return ctx;
-  const res = ctx.res;
+  const res = new NextResponse();
 
   try {
     const session = await getSessionFromRequest(req, res);
