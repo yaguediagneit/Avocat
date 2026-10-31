@@ -175,7 +175,7 @@ export async function computeAccountBalancesAt(
   const lines = await prisma.accountingEntryLine.findMany({
     where: {
       tenantId,
-      entry: { entryDate: { lte: endOfDay(upTo) } },
+      entry: { isValidated: true, entryDate: { lte: endOfDay(upTo) } },
     },
     select: {
       account: { select: { accountCode: true, accountType: true } },
@@ -210,6 +210,7 @@ export async function computeAccountMovements(
     where: {
       tenantId,
       entry: {
+        isValidated: true,
         entryDate: { gte: startOfDay(dateDebut), lte: endOfDay(dateFin) },
       },
     },
@@ -419,26 +420,33 @@ export function computeBilan(accounts: any[], cr: CompteResultat): BilanSection 
     if ([2, 3].includes(cls)) {
       actif_immobilisations.push(item);
     }
-    // ACTIF CIRCULANT (classe 4 ACTIF, sauf 445)
-    else if (cls === 4 && type === "ACTIF" && code !== "445") {
-      actif_circulant.push(item);
+    // Solde ramené en convention débiteur(+) / créditeur(−) quel que soit le
+    // type déclaré : pour PASSIF le stockage est crédit − débit.
+    // Un compte de tiers débiteur (avance fournisseur, client…) va à l'actif,
+    // un compte créditeur (dette, avance reçue) au passif.
+    else if (cls === 4 && !["443", "445"].includes(code)) {
+      const netDebit = ["PASSIF", "ACTIF/PASSIF", "CAPITAU"].includes(type) ? -solde : solde;
+      if (netDebit > 0) actif_circulant.push({ ...item, solde: netDebit });
+      else if (netDebit < 0) passif_circulant.push({ ...item, solde: -netDebit });
     }
     // TRÉSORERIE-ACTIF (classe 5, solde > 0)
     else if (cls === 5 && solde > 0) {
       tresorerie_actif.push(item);
     }
-    // TRÉSORERIE-PASSIF (classe 5, solde < 0 = concours bancaires)
+    // TRÉSORERIE-PASSIF : seul un compte bancaire (52x) créditeur est un découvert
+    // légitime ; une caisse (57x) négative est une anomalie qui reste à l'actif.
     else if (cls === 5 && solde < 0) {
-      tresorerie_passif.push({ ...item, solde: Math.abs(solde) });
+      if (code.startsWith("52")) {
+        tresorerie_passif.push({ ...item, solde: Math.abs(solde) });
+      } else {
+        tresorerie_actif.push({ ...item, label: `${a.label} — SOLDE CRÉDITEUR (ANOMALIE)` });
+      }
     }
     // CAPITAUX PROPRES (classe 1)
     else if (cls === 1) {
       capitaux_propres.push(item);
     }
-    // PASSIF CIRCULANT (classe 4 PASSIF, sauf 443 et 445)
-    else if (cls === 4 && type === "PASSIF" && !["443", "445"].includes(code)) {
-      passif_circulant.push(item);
-    }
+    // (les comptes de tiers sont classés plus haut, au signe réel)
   }
 
   // TVA nette : centralisée dans le compte 444 État, TVA due / crédit de TVA
@@ -530,6 +538,7 @@ export async function computeFluxTresorerie(
     where: {
       tenantId,
       entry: {
+        isValidated: true,
         entryDate: { gte: dateDebut, lte: dateFin },
       },
       account: { class: 2 },
@@ -543,6 +552,7 @@ export async function computeFluxTresorerie(
     where: {
       tenantId,
       entry: {
+        isValidated: true,
         entryDate: { gte: dateDebut, lte: dateFin },
       },
       account: { class: 1 },
@@ -556,6 +566,7 @@ export async function computeFluxTresorerie(
     where: {
       tenantId,
       entry: {
+        isValidated: true,
         entryDate: { gte: dateDebut, lte: dateFin },
       },
       account: {

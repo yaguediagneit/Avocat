@@ -43,6 +43,8 @@ const DEFAULT_MAPPINGS: Record<string, { accountCode: string; journalCode: strin
   REVENUE_SERVICES: { accountCode: "706", journalCode: "VEN" },
   TVA_COLLECTED: { accountCode: "443", journalCode: "TVA" },
   CUSTOMER_RECEIVABLE: { accountCode: "411", journalCode: "VEN" },
+  // Avances et provisions reçues des clients (avant facturation ou débours)
+  CLIENT_ADVANCE: { accountCode: "419", journalCode: "CAI" },
   // Charges
   TVA_RECOVERABLE: { accountCode: "445", journalCode: "TVA" },
   SUPPLIER_PAYABLE: { accountCode: "401", journalCode: "ACH" },
@@ -164,50 +166,99 @@ export async function createAccountingEntry(
   });
   const accountMap: Map<string, any> = new Map(accounts.map((a: any) => [a.id, a]));
 
-  const entry = await prisma.accountingEntry.create({
-    data: {
-      tenantId,
-      journalId,
-      exerciseId,
-      entryDate,
-      reference,
-      idempotencyKey,
-      libelle,
-      totalDebit,
-      totalCredit,
-      createdBy,
-    },
-  });
-
-  for (const l of lines) {
-    await prisma.accountingEntryLine.create({
+  // Écriture + lignes + mise à jour des soldes dans UNE transaction : aucun état
+  // intermédiaire (écriture sans lignes ou soldes décalés) ne peut subsister.
+  const work = async (tx: any) => {
+    const entry = await tx.accountingEntry.create({
       data: {
         tenantId,
-        entryId: entry.id,
-        accountId: l.accountId,
-        debit: l.debit || 0,
-        credit: l.credit || 0,
-        libelle: l.libelle,
-        thirdPartyType: l.thirdPartyType || null,
-        thirdPartyId: l.thirdPartyId || null,
+        journalId,
+        exerciseId,
+        entryDate,
+        reference,
+        idempotencyKey,
+        libelle,
+        totalDebit,
+        totalCredit,
+        // Toute écriture générée par l'application est validée ; « brouillon »
+        // sert de suspension (exclue des états, jamais supprimée).
+        isValidated: true,
+        validatedAt: new Date(),
+        createdBy,
       },
     });
 
-    const account = accountMap.get(l.accountId);
-    if (account) {
-      const signedAmount = PASSIF_PRODUIT_TYPES.has(account.accountType)
-        ? (l.credit || 0) - (l.debit || 0)
-        : (l.debit || 0) - (l.credit || 0);
-      await prisma.accountingAccount.update({
-        where: { id: l.accountId },
-        data: { soldeActuel: { increment: signedAmount } },
+    for (const l of lines) {
+      await tx.accountingEntryLine.create({
+        data: {
+          tenantId,
+          entryId: entry.id,
+          accountId: l.accountId,
+          debit: l.debit || 0,
+          credit: l.credit || 0,
+          libelle: l.libelle,
+          thirdPartyType: l.thirdPartyType || null,
+          thirdPartyId: l.thirdPartyId || null,
+        },
       });
+
+      const account = accountMap.get(l.accountId);
+      if (account) {
+        const signedAmount = PASSIF_PRODUIT_TYPES.has(account.accountType)
+          ? (l.credit || 0) - (l.debit || 0)
+          : (l.debit || 0) - (l.credit || 0);
+        await tx.accountingAccount.update({
+          where: { id: l.accountId },
+          data: { soldeActuel: { increment: signedAmount } },
+        });
+      }
     }
-  }
+    return entry;
+  };
+
+  const entry = typeof prisma.$transaction === "function"
+    ? await prisma.$transaction(work)
+    : await work(prisma);
 
   return prisma.accountingEntry.findUnique({
     where: { id: entry.id },
     include: { journal: true, lines: { include: { account: true } } },
+  });
+}
+
+// ============================================================
+// CONTRE-PASSATION (annulation d'une écriture postée)
+// Crée l'écriture miroir (débits ↔ crédits), référence suffixée « -ANN ».
+// L'originale est conservée pour l'audit ; l'effet net est nul.
+// Idempotent : la clé `reversal-<id>` empêche une double annulation.
+// ============================================================
+export async function reverseAccountingEntry(
+  prisma: any,
+  entryId: string,
+  opts: { userId?: string | null; reason?: string } = {}
+) {
+  const orig = await prisma.accountingEntry.findUnique({
+    where: { id: entryId },
+    include: { lines: true },
+  });
+  if (!orig) return null;
+  return createAccountingEntry(prisma, {
+    tenantId: orig.tenantId,
+    journalId: orig.journalId,
+    exerciseId: orig.exerciseId,
+    entryDate: new Date(),
+    reference: `${orig.reference ?? orig.id}-ANN`,
+    idempotencyKey: `reversal-${orig.id}`,
+    libelle: `ANNULATION — ${orig.libelle}${opts.reason ? ` (${opts.reason})` : ""}`,
+    createdBy: opts.userId ?? null,
+    lines: orig.lines.map((l: any) => ({
+      accountId: l.accountId,
+      debit: Number(l.credit) || 0,
+      credit: Number(l.debit) || 0,
+      libelle: `ANN — ${l.libelle ?? ""}`.trim(),
+      thirdPartyType: l.thirdPartyType,
+      thirdPartyId: l.thirdPartyId,
+    })),
   });
 }
 
@@ -441,6 +492,135 @@ export async function createEntryFromPayment(
   });
 
   return entry;
+}
+
+// ============================================================
+// 2bis. PROVISION CLIENT (avance reçue avant facturation / pour débours)
+// Réception : D 52/57 trésorerie / C 419 provision client (auxiliaire par client)
+// Application : D 419 provision client / C 411 client (extinction de créance)
+// La provision n'est jamais un produit : seule sa reconnaissance en créance
+// ou sa ventilaton en débours produit le revenu.
+// ============================================================
+
+/** Résout le compte auxiliaire de provision du client (419-« nom »). */
+async function resolveClientAdvanceAccount(prisma: any, clientId: string | null | undefined) {
+  const parent = await resolveFirstAccount(prisma, ["4191", "419"]);
+  if (!parent) return null;
+  if (!clientId) return parent;
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { raisonSociale: true },
+  });
+  return resolveTiersAccount(prisma, parent, client?.raisonSociale ?? "Client");
+}
+
+/**
+ * Encaissement d'une provision client : Débit trésorerie / Crédit 419.
+ * Aucun produit ni créance : la provision est une dette envers le client.
+ */
+export async function createEntryFromClientProvision(
+  prisma: any,
+  tenantId: string,
+  provision: {
+    id: string;
+    clientId: string;
+    montant: number;
+    mode: string;
+    dateEncaissement: Date;
+  },
+  userId: string | null
+) {
+  const isCash = provision.mode === "especes";
+  const treasuryMapping = await getMapping(prisma, isCash ? "CASH" : "BANK");
+  const journal = await resolveJournal(prisma, treasuryMapping.journalCode);
+  const exercise = await getOpenExercise(prisma);
+
+  const cashAccount = await resolveAccount(prisma, treasuryMapping.accountCode);
+  const advanceAccount = await resolveClientAdvanceAccount(prisma, provision.clientId);
+  if (!advanceAccount) throw new Error("Compte de provision client (419) introuvable");
+
+  return createAccountingEntry(prisma, {
+    tenantId,
+    journalId: journal.id,
+    exerciseId: exercise.id,
+    entryDate: new Date(provision.dateEncaissement),
+    reference: `PROV-${provision.id.slice(-6)}`,
+    idempotencyKey: `provision-${provision.id}`,
+    libelle: `Provision client reçue`,
+    createdBy: userId,
+    lines: [
+      { accountId: cashAccount.id, debit: Number(provision.montant), credit: 0, libelle: "Encaissement provision" },
+      { accountId: advanceAccount.id, debit: 0, credit: Number(provision.montant), libelle: "Provision client", thirdPartyType: "client", thirdPartyId: provision.clientId },
+    ],
+  });
+}
+
+/**
+ * Application d'une provision sur une facture : Débit 419 / Crédit 411.
+ * La facture doit avoir son écriture d'émission (créance 411 à solder).
+ */
+export async function createEntryFromProvisionApplication(
+  prisma: any,
+  tenantId: string,
+  payment: { id: string; montant: number; datePaiement: Date },
+  facture: { id: string; numero?: string | null; clientId?: string | null },
+  userId: string | null
+) {
+  const exercise = await getOpenExercise(prisma);
+  const journal = await resolveJournal(prisma, "OD");
+
+  const advanceAccount = await resolveClientAdvanceAccount(prisma, facture.clientId);
+  const receivableParent = await resolveAccount(prisma, DEFAULT_MAPPINGS.CUSTOMER_RECEIVABLE.accountCode);
+  const client = facture.clientId
+    ? await prisma.client.findUnique({ where: { id: facture.clientId }, select: { raisonSociale: true } })
+    : null;
+  const receivableAccount = client
+    ? await resolveTiersAccount(prisma, receivableParent, client.raisonSociale)
+    : receivableParent;
+  if (!advanceAccount) throw new Error("Compte de provision client (419) introuvable");
+
+  return createAccountingEntry(prisma, {
+    tenantId,
+    journalId: journal.id,
+    exerciseId: exercise.id,
+    entryDate: new Date(payment.datePaiement),
+    reference: `PROV-APL-${payment.id.slice(-6)}`,
+    idempotencyKey: `payment-provision-${payment.id}`,
+    libelle: `Provision appliquée à la facture ${facture.numero ?? payment.id.slice(-6)}`,
+    createdBy: userId,
+    lines: [
+      { accountId: advanceAccount.id, debit: Number(payment.montant), credit: 0, libelle: "Provision appliquée", thirdPartyType: "client", thirdPartyId: facture.clientId ?? null },
+      { accountId: receivableAccount.id, debit: 0, credit: Number(payment.montant), libelle: "Extinction créance par provision", thirdPartyType: "client", thirdPartyId: facture.clientId ?? null },
+    ],
+  });
+}
+
+/**
+ * Provision disponible d'un client = solde créditeur net de son auxiliaire 419
+ * (encaissements − applications − remboursements), calculé sur le grand livre.
+ */
+export async function getClientAdvanceBalance(prisma: any, tenantId: string, clientId: string): Promise<number> {
+  const parent = await prisma.accountingAccount.findFirst({
+    where: { accountCode: { in: ["4191", "419"] } },
+    select: { id: true },
+  });
+  if (!parent) return 0;
+  const aux = await prisma.accountingAccount.findMany({
+    where: { parentId: parent.id },
+    select: { id: true },
+  });
+  const ids = [parent.id, ...aux.map((a: any) => a.id)];
+  const agg = await prisma.accountingEntryLine.aggregate({
+    where: {
+      tenantId,
+      accountId: { in: ids },
+      thirdPartyType: "client",
+      thirdPartyId: clientId,
+      entry: { isValidated: true },
+    },
+    _sum: { debit: true, credit: true },
+  });
+  return (Number(agg._sum.credit) || 0) - (Number(agg._sum.debit) || 0);
 }
 
 // ============================================================

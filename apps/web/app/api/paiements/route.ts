@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { logAudit } from "@/lib/audit";
-import { createEntryFromPayment } from "@/lib/accounting";
+import { createEntryFromPayment, createEntryFromProvisionApplication, getClientAdvanceBalance } from "@/lib/accounting";
 
 const paiementSchema = z.object({
   factureId: z.string().uuid(),
   montant: z.coerce.number().int().positive("Le montant doit être positif"),
-  mode: z.enum(["virement", "especes", "cheque", "carte", "autre"]),
+  mode: z.enum(["virement", "especes", "cheque", "carte", "autre", "provision"]),
   reference: z.string().optional(),
   datePaiement: z.coerce.date().optional(),
 });
@@ -51,6 +51,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
     }
 
+    // Refus du surpaiement : le règlement ne peut pas dépasser le reste dû
+    const dejaPaye = facture.paiements.reduce((acc, p) => acc + Number(p.montant), 0);
+    const resteDu = Number(facture.totalTtc) - dejaPaye;
+    if (parsed.data.montant > resteDu) {
+      return NextResponse.json(
+        { error: `Montant supérieur au reste dû (${resteDu.toLocaleString("fr-FR")} F)` },
+        { status: 400 }
+      );
+    }
+
     const { paiement, entry } = await ctx.prisma.$transaction(async (tx) => {
       const paiement = await tx.paiement.create({
         data: {
@@ -72,9 +82,21 @@ export async function POST(req: NextRequest) {
         data: { statut: statutFromSolde(totalTtc, totalPaye) },
       });
 
-      const entry = factureDto
-        ? await createEntryFromPayment(tx, ctx.tenantId, paiement, factureDto, ctx.userId)
-        : null;
+      let entry = null;
+      if (parsed.data.mode === "provision") {
+        // Application de la provision : D 419 / C 411 — aucune trésorerie ne bouge.
+        // La facture doit avoir sa créance 411 à solder et la provision doit suffire.
+        if (!facture.accountingEntryId) {
+          throw new Error("La facture n'a pas d'écriture d'émission : la provision ne peut pas solder sa créance");
+        }
+        const disponible = await getClientAdvanceBalance(tx, ctx.tenantId, facture.clientId!);
+        if (parsed.data.montant > disponible) {
+          throw new Error(`Provision insuffisante (${disponible.toLocaleString("fr-FR")} F disponibles)`);
+        }
+        entry = await createEntryFromProvisionApplication(tx, ctx.tenantId, paiement, facture, ctx.userId);
+      } else if (factureDto) {
+        entry = await createEntryFromPayment(tx, ctx.tenantId, paiement, factureDto, ctx.userId);
+      }
       return { paiement, entry };
     });
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { guard } from "@/lib/api-guard";
 import { canAccessDossier } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
+import { reverseAccountingEntry } from "@/lib/accounting";
 
 async function ensureFactureDossierAccess(
   ctx: Awaited<ReturnType<typeof guard>>,
@@ -114,6 +115,26 @@ export async function DELETE(
   if (access !== true) return access;
 
   try {
+    const facture = await ctx.prisma.facture.findUnique({
+      where: { id: params.id },
+      include: { paiements: true },
+    });
+    if (!facture) {
+      return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
+    }
+    if (facture.paiements.length > 0) {
+      return NextResponse.json(
+        { error: "Facture avec des règlements : annulez d'abord les paiements associés" },
+        { status: 409 }
+      );
+    }
+    // Contre-passation de l'écriture d'émission (l'origine reste consultable ; effet net nul)
+    if (facture.accountingEntryId) {
+      await reverseAccountingEntry(ctx.prisma, facture.accountingEntryId, {
+        userId: ctx.userId,
+        reason: "désactivation de la facture",
+      });
+    }
     await ctx.prisma.facture.update({ where: { id: params.id }, data: { actif: false } });
     await logAudit(ctx.prisma, ctx.userId, "facture_deactivated", "facture", params.id);
     return NextResponse.json({ ok: true });

@@ -165,6 +165,13 @@ export default async function ComptabiliteDashboardPage({
             <p className="mt-1 text-sm text-orange-600">Saisie et consultation des écritures</p>
           </Link>
           <Link
+            href="/cabinet/comptabilite/provisions"
+            className={`${cardBase} border-orange-200 bg-orange-50 hover:border-orange-300`}
+          >
+            <h3 className="font-semibold text-orange-800">Provisions</h3>
+            <p className="mt-1 text-sm text-orange-600">Avances clients (compte 419)</p>
+          </Link>
+          <Link
             href="/cabinet/comptabilite/grand-livre"
             className={`${cardBase} border-orange-200 bg-orange-50 hover:border-orange-300`}
           >

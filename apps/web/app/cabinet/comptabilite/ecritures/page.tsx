@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTenantPrisma } from "@/lib/prisma";
 import { listTiers, tiersMapOf } from "@/lib/tiers";
 import { PaginatedRows } from "@/components/pagination";
+import { EntryValidationButton } from "./entry-validation-button";
 import { SortableTh } from "@/components/sortable-th";
 import { getSortSpec, sortRows } from "@/lib/table-sort";
 
@@ -51,17 +52,18 @@ export default async function EcrituresPage({
                 <SortableTh {...thProps} column="tiers" label="Tiers" className="px-2 py-3 text-xs whitespace-nowrap" />
                 <SortableTh {...thProps} column="debit" label="Débit" className="px-2 py-3 text-xs whitespace-nowrap" />
                 <SortableTh {...thProps} column="credit" label="Crédit" className="px-2 py-3 text-xs whitespace-nowrap" />
+                <th className="px-2 py-3 text-xs">Statut</th>
               </tr>
             </thead>
             <tbody>
               {entries.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-2 py-6 text-center text-gray-500">
+                  <td colSpan={8} className="px-2 py-6 text-center text-gray-500">
                     Aucune écriture pour le moment.
                   </td>
                 </tr>
               )}
-              <PaginatedRows colSpan={7}>
+              <PaginatedRows colSpan={8}>
               {sortRows(entries, sort, {
                 date: (e) => e.entryDate,
                 journal: (e) => e.journal.code,
@@ -105,6 +107,9 @@ export default async function EcrituresPage({
                   </td>
                   <td className="px-4 py-3">{Number(e.totalDebit).toLocaleString("fr-FR")}</td>
                   <td className="px-4 py-3">{Number(e.totalCredit).toLocaleString("fr-FR")}</td>
+                  <td className="px-4 py-3">
+                    <EntryValidationButton entryId={e.id} isValidated={e.isValidated} />
+                  </td>
                 </tr>
               );
             })}
